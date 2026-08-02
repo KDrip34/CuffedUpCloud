@@ -4,7 +4,7 @@ A zero-knowledge encrypted message board and private journal for a small circle
 of friends. One HTML file, no accounts, no backend required — the server here is
 optional and can't read anything.
 
-**Live app:** https://YOUR-USERNAME.github.io/cuffedupboard/
+**Live app:** https://kdrip34.github.io/cuffedupboard/
 
 Built by **Kendrick Ekejiuba** as the fourth deliverable in the CuffedUpCloud
 CIA Triad project series.
@@ -107,7 +107,7 @@ To reach phones it needs HTTPS: put it behind a tunnel (`cloudflared tunnel
 ## Optional: the Python journal bridge
 
 The Journal tab exports entries re-encrypted under a passphrase you choose, in
-the exact envelope format of [`journal.py`](https://github.com/YOUR-USERNAME) from
+the exact envelope format of [`journal.py`](https://github.com/KDrip34) from
 the CuffedUpCloud project — PBKDF2-200k → AES-256-GCM, HMAC-SHA256, SHA-256
 fingerprint.
 

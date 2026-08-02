@@ -2,8 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CuffedUpBoard — Encrypted Friend Board V5</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#12101F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CuffedUp">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg">
+<title>CuffedUpBoard — Encrypted Friend Board V6</title>
 <style>
   :root{
     --bg:#12101F; --bg-raise:#1B1830; --bg-card:#211D3A;
@@ -11,79 +18,101 @@
     --purple:#7F77DD; --purple-soft:#CECBF6;
     --teal:#2BB58A; --teal-soft:#9FE1CB;
     --coral:#E0663B; --coral-soft:#F5C4B3;
-    --danger:#E24B4A;
+    --danger:#E24B4A; --line:#2A2648; --line2:#37325C;
     --mono:ui-monospace,'Cascadia Code',Menlo,Consolas,monospace;
     --sans:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+    --pad:22px;
   }
-  *{box-sizing:border-box;margin:0;padding:0}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);min-height:100%}
-  body{display:flex;flex-direction:column;align-items:center;padding:0 16px 64px}
+  body{display:flex;flex-direction:column;align-items:center;
+       padding:0 max(14px,env(safe-area-inset-left)) calc(48px + env(safe-area-inset-bottom))}
   .wrap{width:100%;max-width:680px}
-  header{padding:26px 0 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  header{padding:calc(18px + env(safe-area-inset-top)) 0 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
   .brand{display:flex;align-items:center;gap:10px}
   .mark{width:34px;height:34px;border-radius:9px;background:var(--purple);display:grid;place-items:center;flex:none}
   h1{font-size:1.05rem;font-weight:700}
   .sub{font-size:.7rem;color:var(--ink-dim);letter-spacing:.14em;text-transform:uppercase}
-  .session{display:flex;align-items:center;gap:10px}
-  .timer{font-family:var(--mono);font-size:.72rem;color:var(--coral-soft);border:1px solid #3a2a3a;border-radius:99px;padding:4px 10px}
-  .lockbtn{background:none;border:1px solid #37325C;color:var(--purple-soft);border-radius:8px;padding:8px 14px;font-size:.8rem;cursor:pointer}
-  .lockbtn:hover{border-color:var(--purple)}
+  .session{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .timer{font-family:var(--mono);font-size:.72rem;color:var(--coral-soft);border:1px solid #3a2a3a;border-radius:99px;padding:5px 10px}
+  .relaydot{font-family:var(--mono);font-size:.68rem;color:var(--ink-dim);border:1px solid var(--line);border-radius:99px;padding:5px 10px}
+  .relaydot.live{color:var(--teal-soft);border-color:rgba(43,181,138,.4)}
+  .relaydot.off{color:var(--coral-soft);border-color:rgba(224,102,59,.35)}
+  .lockbtn{background:none;border:1px solid var(--line2);color:var(--purple-soft);border-radius:8px;padding:9px 14px;font-size:.8rem;cursor:pointer;min-height:40px}
 
-  .panel{background:var(--bg-raise);border:1px solid #2A2648;border-radius:16px;padding:22px;margin-bottom:16px}
-  .panel h2{font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:14px}
+  .panel{background:var(--bg-raise);border:1px solid var(--line);border-radius:16px;padding:var(--pad);margin-bottom:14px}
+  .panel h2{font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:12px}
+  h3{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);margin:22px 0 4px;padding-top:16px;border-top:1px solid var(--line)}
   label{display:block;font-size:.82rem;color:var(--purple-soft);margin:12px 0 6px}
-  input,textarea,select{width:100%;background:var(--bg);border:1px solid #37325C;border-radius:10px;color:var(--ink);padding:11px 13px;font-size:1rem;font-family:var(--sans)}
-  textarea{min-height:90px;resize:vertical;line-height:1.5}
+  input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:10px;color:var(--ink);
+    padding:12px 13px;font-size:16px;font-family:var(--sans)}  /* 16px keeps iOS from zooming */
+  textarea{min-height:88px;resize:vertical;line-height:1.5}
   input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--purple);outline-offset:2px}
-  .btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:10px;padding:11px 18px;font-size:.9rem;font-weight:600;cursor:pointer;color:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:10px;
+    padding:12px 18px;font-size:.9rem;font-weight:600;cursor:pointer;color:#fff;min-height:44px}
   .btn-purple{background:var(--purple)} .btn-purple:hover{background:#8F88E4}
   .btn-teal{background:var(--teal)} .btn-teal:hover{background:#33C497}
   .btn-coral{background:var(--coral)} .btn-coral:hover{background:#EB744A}
-  .btn-ghost{background:none;border:1px solid #37325C;color:var(--purple-soft)}
+  .btn-ghost{background:none;border:1px solid var(--line2);color:var(--purple-soft)}
   .btn[disabled]{opacity:.45;cursor:not-allowed}
-  .btn-mini{padding:5px 10px;font-size:.7rem;border-radius:8px}
+  .btn-mini{padding:7px 11px;font-size:.72rem;border-radius:8px;min-height:36px}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
   .grow{flex:1}
-  .note{font-size:.78rem;color:var(--ink-dim);line-height:1.55;margin-top:12px}
+  .note{font-size:.78rem;color:var(--ink-dim);line-height:1.55;margin-top:10px}
   .warn{color:var(--coral-soft)}
   .err{color:var(--danger);font-size:.85rem;margin-top:10px;min-height:1.2em}
   .ok{color:var(--teal-soft);font-size:.85rem;margin-top:10px}
   .mono{font-family:var(--mono)}
-  .secretbox{background:var(--bg);border:1px dashed #37325C;border-radius:10px;padding:12px;font-family:var(--mono);font-size:.82rem;word-break:break-all;color:var(--teal-soft);margin-top:8px}
+  .secretbox{background:var(--bg);border:1px dashed var(--line2);border-radius:10px;padding:12px;font-family:var(--mono);
+    font-size:.8rem;word-break:break-all;color:var(--teal-soft);margin-top:8px}
   .democode{font-family:var(--mono);font-size:1.6rem;letter-spacing:.3em;color:var(--purple-soft);text-align:center;padding:8px 0}
+  .switch{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:.84rem;color:var(--purple-soft)}
+  .switch input{width:auto;min-width:20px;height:20px;accent-color:var(--purple)}
 
-  /* tabs */
-  .tabs{display:flex;gap:6px;margin-bottom:14px}
-  .tab{flex:1;background:none;border:1px solid #2A2648;color:var(--ink-dim);border-radius:10px;padding:10px 6px;font-size:.8rem;font-weight:600;cursor:pointer}
-  .tab.active{border-color:var(--purple);color:var(--purple-soft);background:rgba(127,119,221,.1)}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0}
+  .tab{flex:1;background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:10px;padding:11px 4px;
+    font-size:.8rem;font-weight:600;cursor:pointer;min-height:44px}
+  .tab.active{border-color:var(--purple);color:var(--purple-soft);background:rgba(127,119,221,.12)}
 
-  /* messages */
-  .msg{background:var(--bg-card);border:1px solid #2A2648;border-radius:14px;padding:16px;margin-bottom:10px}
-  .msg.reply-card{margin-left:26px;border-left:3px solid #37325C}
+  .msg{background:var(--bg-card);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:10px}
+  .msg.reply-card{margin-left:18px;border-left:3px solid var(--line2)}
   .msg.pinned-card{border-color:rgba(224,102,59,.55)}
-  .msg-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .msg-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
   .author{font-weight:700;font-size:.9rem;color:var(--purple-soft)}
   .when{font-size:.7rem;color:var(--ink-dim)}
-  .sealed{margin-top:10px;background:var(--bg);border:1px dashed #37325C;border-radius:10px;padding:14px;text-align:center;cursor:pointer;color:var(--ink-dim);font-size:.85rem}
+  .sealed{margin-top:10px;background:var(--bg);border:1px dashed var(--line2);border-radius:10px;padding:15px;
+    text-align:center;cursor:pointer;color:var(--ink-dim);font-size:.85rem;min-height:48px}
   .sealed:hover{border-color:var(--purple);color:var(--purple-soft)}
-  .body{margin-top:10px;white-space:pre-wrap;line-height:1.55;font-size:.95rem}
+  .body{margin-top:10px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;font-size:.95rem}
   .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center}
-  .badge{font-family:var(--mono);font-size:.6rem;letter-spacing:.05em;padding:3px 8px;border-radius:99px;background:rgba(43,181,138,.14);color:var(--teal-soft);border:1px solid rgba(43,181,138,.35)}
+  .badge{font-family:var(--mono);font-size:.6rem;letter-spacing:.05em;padding:3px 8px;border-radius:99px;
+    background:rgba(43,181,138,.14);color:var(--teal-soft);border:1px solid rgba(43,181,138,.35)}
   .badge-fail{background:rgba(226,75,74,.14);color:#F09595;border-color:rgba(226,75,74,.4)}
   .badge-new{background:rgba(224,102,59,.18);color:var(--coral-soft);border-color:rgba(224,102,59,.45)}
   .badge-topic{background:rgba(127,119,221,.14);color:var(--purple-soft);border-color:rgba(127,119,221,.4)}
   .reseal{font-size:.65rem;color:var(--coral-soft);font-family:var(--mono)}
   .memberchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-  .chip{font-family:var(--mono);font-size:.66rem;color:var(--ink-dim);border:1px solid #2A2648;border-radius:99px;padding:4px 10px}
+  .chip{font-family:var(--mono);font-size:.66rem;color:var(--ink-dim);border:1px solid var(--line);border-radius:99px;padding:4px 10px}
   .empty{color:var(--ink-dim);font-size:.9rem;text-align:center;padding:20px 0}
-  .hidden{display:none}
+  .hidden{display:none!important}
   .stack{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
-  .msg-actions{display:flex;gap:6px;margin-top:10px}
-  .archive-toggle{width:100%;background:none;border:1px dashed #2A2648;color:var(--ink-dim);border-radius:10px;padding:10px;font-size:.78rem;cursor:pointer;margin:8px 0 12px}
+  .msg-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .archive-toggle{width:100%;background:none;border:1px dashed var(--line);color:var(--ink-dim);border-radius:10px;
+    padding:12px;font-size:.78rem;cursor:pointer;margin:8px 0 12px;min-height:44px}
   .archive-toggle:hover{border-color:var(--purple);color:var(--purple-soft)}
   .replybar{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--coral-soft);margin-top:10px}
-  .replybar button{background:none;border:none;color:var(--ink-dim);cursor:pointer;text-decoration:underline;font-size:.75rem}
-  .synctext{font-family:var(--mono);font-size:.7rem;min-height:110px}
+  .replybar button{background:none;border:none;color:var(--ink-dim);cursor:pointer;text-decoration:underline;font-size:.75rem;padding:6px}
+  .synctext{font-family:var(--mono);font-size:.7rem;min-height:96px}
+
+  @media (max-width:520px){
+    :root{--pad:16px}
+    header{padding-top:calc(12px + env(safe-area-inset-top))}
+    .tab{font-size:0}                     /* icons only on narrow screens */
+    .tab::first-letter{font-size:1.15rem}
+    .row .btn{flex:1 1 100%}
+    .row .btn-mini{flex:0 0 auto}
+    .msg.reply-card{margin-left:10px}
+  }
   @media (prefers-reduced-motion:no-preference){
     .panel{animation:rise .3s ease both}
     @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -97,15 +126,16 @@
       <div class="mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><rect x="4" y="10" width="16" height="10" rx="2" fill="#fff"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
       </div>
-      <div><h1>CuffedUpBoard</h1><div class="sub">Encrypted friend board · V5</div></div>
+      <div><h1>CuffedUpBoard</h1><div class="sub">Encrypted friend board · V6</div></div>
     </div>
     <div class="session hidden" id="sessionBar">
+      <span class="relaydot" id="relayDot">relay off</span>
       <span class="timer" id="idleTimer">90s</span>
-      <button class="lockbtn" id="btnPanic" type="button">Lock now</button>
+      <button class="lockbtn" id="btnPanic" type="button">Lock</button>
     </div>
   </header>
 
-  <!-- ========== SETUP: create board ========== -->
+  <!-- ========== SETUP ========== -->
   <section id="setup" class="panel">
     <h2>Create a board</h2>
     <p class="note">You're the admin. The board gets one random <strong>group key</strong> (never derived from anyone's password). Each member you enroll gets their own password + TOTP secret, their own <strong>private journal key</strong>, and the group key is <strong>wrapped separately</strong> to each of them.</p>
@@ -115,22 +145,21 @@
       <input type="file" id="fileBoard" accept=".json" class="hidden">
     </div>
     <label for="setupPaste">…or paste a board / sync code a friend sent you</label>
-    <textarea id="setupPaste" class="synctext" placeholder="CUB5:..."></textarea>
+    <textarea id="setupPaste" class="synctext" placeholder="CUB6:..."></textarea>
     <div class="row"><button class="btn btn-teal" id="btnSetupPaste" type="button">Load from pasted code</button></div>
     <p class="err" id="setupErr"></p>
   </section>
 
-  <!-- ========== ENROLL members ========== -->
+  <!-- ========== ENROLL ========== -->
   <section id="enroll" class="panel hidden">
     <h2>Enroll members <span id="memberCount" style="color:var(--purple-soft)"></span></h2>
     <div class="memberchips" id="memberChips"></div>
     <label for="enName">Member name</label>
-    <input id="enName" placeholder="e.g. Marcus">
-    <label for="enPw">Their password (8+ chars — they should change the habit of sharing it)</label>
+    <input id="enName" placeholder="e.g. Marcus" autocomplete="off">
+    <label for="enPw">Their password (8+ chars)</label>
     <input id="enPw" type="password" autocomplete="new-password">
     <div class="row">
       <button class="btn btn-teal" id="btnEnroll" type="button">Enroll member</button>
-      <span class="grow"></span>
       <button class="btn btn-purple" id="btnDone" type="button" disabled>Done — go to login</button>
     </div>
     <div id="secretReveal" class="hidden">
@@ -142,7 +171,7 @@
     <p class="err" id="enrollErr"></p>
   </section>
 
-  <!-- ========== LOGIN: two-factor unlock ========== -->
+  <!-- ========== LOGIN ========== -->
   <section id="login" class="panel hidden">
     <h2>Unlock the board</h2>
     <p class="note hidden" id="resumeNote">Loaded your saved board from this device — no file import needed.
@@ -152,29 +181,27 @@
     <label for="liPw">Password <span style="color:var(--ink-dim)">(factor 1 — something you know)</span></label>
     <input id="liPw" type="password" autocomplete="current-password">
     <label for="liCode">6-digit code <span style="color:var(--ink-dim)">(factor 2 — something you have)</span></label>
-    <input id="liCode" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" class="mono">
+    <input id="liCode" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" class="mono" autocomplete="one-time-code">
     <div class="row">
       <button class="btn btn-purple" id="btnUnlock" type="button">Verify both factors &amp; unwrap keys</button>
-      <span class="grow"></span>
-      <button class="btn btn-ghost" id="btnShowDemo" type="button">Demo authenticator</button>
+      <button class="btn btn-ghost btn-mini" id="btnShowDemo" type="button">Demo authenticator</button>
     </div>
     <div id="demoAuth" class="hidden">
-      <p class="note warn">Simulator only — in real life this code lives in Authy on a separate device. Showing it here is for testing the flow.</p>
+      <p class="note warn">Simulator only — in real life this code lives in Authy on a separate device.</p>
       <div class="democode" id="demoCode">------</div>
     </div>
     <p class="err" id="loginErr"></p>
     <p class="note" id="cooldownNote"></p>
   </section>
 
-  <!-- ========== UNLOCKED AREA ========== -->
+  <!-- ========== UNLOCKED ========== -->
   <div id="unlocked" class="hidden">
     <div class="tabs">
       <button class="tab active" id="tabBoard" type="button">💬 Board</button>
-      <button class="tab" id="tabJournal" type="button">📓 My Journal</button>
+      <button class="tab" id="tabJournal" type="button">📓 Journal</button>
       <button class="tab" id="tabSync" type="button">🔄 Sync</button>
     </div>
 
-    <!-- BOARD -->
     <section id="board" class="panel">
       <h2>Board <span id="whoami" style="color:var(--teal-soft)"></span></h2>
       <div id="messages"></div>
@@ -184,234 +211,255 @@
       </div>
       <label for="draft">New message</label>
       <textarea id="draft" placeholder="Encrypted with the group key. Signed with your key. Sealed on screen."></textarea>
-      <label for="draftTopic">Topic <span style="color:var(--ink-dim)">(optional — helps keep conversations grouped &amp; relevant)</span></label>
-      <input id="draftTopic" placeholder="e.g. weekend-plans" maxlength="24">
-      <div class="row">
-        <button class="btn btn-purple" id="btnPost" type="button">Encrypt, sign &amp; post</button>
-      </div>
-      <p class="note">Messages arrive <strong>sealed</strong>. Tap one to decrypt + verify its signature; it re-seals after 30 seconds. Threads sort by <strong>relevance</strong> — pinned first, then recent activity; quiet threads auto-archive after about a week. The board locks after 90s idle or the moment this tab loses focus.</p>
+      <label for="draftTopic">Topic <span style="color:var(--ink-dim)">(optional — groups the conversation)</span></label>
+      <input id="draftTopic" placeholder="e.g. weekend-plans" maxlength="24" autocomplete="off">
+      <div class="row"><button class="btn btn-purple" id="btnPost" type="button">Encrypt, sign &amp; post</button></div>
+      <p class="note">Messages arrive <strong>sealed</strong>. Tap to decrypt + verify; re-seals after 30s. Threads rank by relevance — pinned first, then recent activity; quiet threads auto-archive after about a week. Locks after 90s idle.</p>
     </section>
 
-    <!-- JOURNAL -->
     <section id="journal" class="panel hidden">
       <h2>My Journal <span id="journalWho" style="color:var(--teal-soft)"></span></h2>
-      <p class="note">Ported from the CuffedUpCloud CIA-triad journal: entries are encrypted with your <strong>personal journal key</strong> — not the group key — so they travel with the board but <strong>only you</strong> can ever decrypt them. AES-256-GCM with the entry metadata bound in as AAD (tamper the timestamp and decryption fails), plus a SHA-256 plaintext fingerprint.</p>
+      <p class="note">Entries are encrypted with your <strong>personal journal key</strong> — not the group key — so they sync with the board but only you can decrypt them. AES-256-GCM with the entry metadata bound in as AAD, plus a SHA-256 plaintext fingerprint.</p>
       <div id="journalEntries"></div>
       <label for="journalDraft">New entry</label>
       <textarea id="journalDraft" placeholder="Private. Encrypted with your journal key only."></textarea>
       <div class="row">
         <button class="btn btn-teal" id="btnJournalSave" type="button">Encrypt &amp; save entry</button>
-        <span class="grow"></span>
-        <button class="btn btn-ghost" id="btnJournalVerify" type="button">Verify all</button>
+        <button class="btn btn-ghost btn-mini" id="btnJournalVerify" type="button">Verify all</button>
       </div>
       <p class="ok" id="journalOk"></p>
+
+      <h3>Bridge to journal.py</h3>
+      <p class="note">Re-encrypts your entries under a passphrase in the exact envelope format of the CuffedUpCloud Python journal (PBKDF2 200k → AES-256-GCM + HMAC-SHA256 + SHA-256 fingerprint). Run <span class="mono">journal_bridge.py unpack</span> on the result and <span class="mono">journal.py read</span> opens it.</p>
+      <label for="bridgePw">Bundle passphrase (8+ chars — this is what journal.py will ask for)</label>
+      <input id="bridgePw" type="password" autocomplete="new-password">
+      <div class="row">
+        <button class="btn btn-ghost" id="btnBridgeExport" type="button">⬇ Build bundle</button>
+        <button class="btn btn-ghost" id="btnBridgeImport" type="button">⬆ Import bundle</button>
+        <input type="file" id="fileBundle" accept=".json" class="hidden">
+      </div>
+      <p class="ok" id="bridgeOk"></p>
+      <p class="err" id="bridgeErr"></p>
     </section>
 
-    <!-- SYNC -->
     <section id="sync" class="panel hidden">
-      <h2>Sync — no file downloads needed</h2>
-      <p class="note">Your board <strong>auto-saves to this device</strong> after every change. To share updates with friends: copy a <strong>sync code</strong> and paste it into any group chat (it's all ciphertext — the channel doesn't need to be private). When a friend sends you one, paste it below and it <strong>merges</strong> — new members, new messages, and journal entries are combined, nothing gets overwritten.</p>
+      <h2>Sync &amp; settings</h2>
+      <p class="note">Your board <strong>auto-saves to this device</strong>. Add a relay below for automatic sync, or paste sync codes by hand — both carry only ciphertext.</p>
+
+      <h3>Relay (automatic)</h3>
+      <label for="relayInput">Relay URL <span style="color:var(--ink-dim)">(blank = off)</span></label>
+      <input id="relayInput" placeholder="http://192.168.1.20:8765" inputmode="url" autocomplete="off">
       <div class="row">
-        <button class="btn btn-purple" id="btnCopySync" type="button">📋 Copy sync code</button>
+        <button class="btn btn-purple" id="btnRelaySave" type="button">Save &amp; sync now</button>
+        <button class="btn btn-ghost btn-mini" id="btnRelayOff" type="button">Turn off</button>
+      </div>
+      <p class="ok" id="relayOk"></p>
+      <p class="note">The relay stores <strong>ciphertext only</strong> — it has no key and can never read a message or journal entry. It does see metadata: board id, member names, timestamps, sizes. Run <span class="mono">python cuffedup_server.py</span> on any computer and point every phone at that address.</p>
+
+      <h3>Sync codes (manual)</h3>
+      <div class="row">
+        <button class="btn btn-teal" id="btnCopySync" type="button">📋 Copy sync code</button>
         <span class="ok" id="syncCopyOk"></span>
       </div>
-      <label for="syncPaste">Paste a friend's sync code to merge</label>
-      <textarea id="syncPaste" class="synctext" placeholder="CUB5:..."></textarea>
+      <label for="syncPaste">Paste a friend's code to merge</label>
+      <textarea id="syncPaste" class="synctext" placeholder="CUB6:..."></textarea>
       <div class="row">
-        <button class="btn btn-teal" id="btnMerge" type="button">Merge into my board</button>
+        <button class="btn btn-ghost" id="btnMerge" type="button">Merge into my board</button>
         <span class="ok" id="mergeOk"></span>
       </div>
       <p class="err" id="syncErr"></p>
-      <div class="row" style="margin-top:22px">
-        <button class="btn btn-ghost" id="btnExportBoard" type="button">Export board file (backup)</button>
-        <span class="grow"></span>
-        <button class="btn btn-coral" id="btnForgetDevice" type="button">Forget board on this device</button>
+
+      <h3>Retention</h3>
+      <label for="retentionSel">Delete quiet threads after</label>
+      <select id="retentionSel">
+        <option value="0">Never — append-only, like the audit database (default)</option>
+        <option value="30">30 days of no activity</option>
+        <option value="90">90 days of no activity</option>
+      </select>
+      <p class="note">Pinned threads are never swept. Deletions travel as <strong>tombstones</strong>, so a friend's copy — and the relay — drop the ciphertext too instead of resurrecting it on the next merge. Your own messages can be deleted individually from the board.</p>
+      <p class="ok" id="retentionOk"></p>
+
+      <h3>Session</h3>
+      <div class="switch">
+        <input type="checkbox" id="blurLockChk" checked>
+        <label for="blurLockChk" style="margin:0">Lock the moment the app loses focus (turn off if switching to your authenticator keeps locking you out on mobile)</label>
       </div>
-      <p class="note">The file export still exists as a backup path — the CuffedUpCloud case study's 3-2-1 rule: keep a copy somewhere that isn't this device.</p>
+      <div class="row" style="margin-top:20px">
+        <button class="btn btn-ghost" id="btnExportBoard" type="button">Export board file (backup)</button>
+        <button class="btn btn-coral btn-mini" id="btnForgetDevice" type="button">Forget board on this device</button>
+      </div>
+      <p class="note">Keep one backup somewhere that isn't this device — the 3-2-1 rule from the case study.</p>
     </section>
   </div>
 
   <div class="stack" aria-hidden="true">
-    <span class="chip">AES-256-GCM group key</span>
-    <span class="chip">per-member key wrap</span>
-    <span class="chip">TOTP RFC-6238</span>
-    <span class="chip">ECDSA P-256 signatures</span>
-    <span class="chip">private journal key</span>
-    <span class="chip">auto-save + merge sync</span>
-    <span class="chip">relevance ranking</span>
+    <span class="chip">AES-256-GCM</span><span class="chip">per-member key wrap</span>
+    <span class="chip">TOTP RFC-6238</span><span class="chip">ECDSA P-256</span>
+    <span class="chip">private journal key</span><span class="chip">blind relay</span>
+    <span class="chip">tombstone retention</span><span class="chip">installable PWA</span>
   </div>
 </div>
 
 <script>
 /* =====================================================================
-   CuffedUpBoard V5 — what changed since V4:
-   1. FRICTIONLESS SYNC: board auto-saves to localStorage (all secret
-      material is ciphertext at rest, per the CuffedUpCloud zero-knowledge
-      model). Sharing = compressed "sync codes" you paste into any chat;
-      importing MERGES (union by message id) instead of replacing.
-      File export kept only as a 3-2-1 backup path.
-   2. RELEVANCE ENGINE: threads (reply-to), topics, pinning. Threads are
-      scored by pin status + reply count + exponential recency decay of
-      last activity (48h half-life). Quiet threads auto-archive (~1 week),
-      unread messages get a NEW badge via a per-device lastSeen watermark.
-   3. PERSONAL JOURNAL: each member gets a random journal key wrapped
-      inside their member wrap (next to the group key + signing key).
-      Entries: AES-256-GCM with envelope metadata as AAD + SHA-256
-      plaintext fingerprint — the journal.py design from CuffedUpCloud.
-      Entries sync with the board but only their owner can decrypt.
-   Carried over from V4: random group key wrapped per member, two-factor
-   cryptographic gate (password + TOTP), ECDSA P-256 authorship,
-   hostile-session lockdown (90s idle, blur lock, sealed messages).
+   CuffedUpBoard V6 — adds to V5:
+   1. BLIND RELAY: optional URL; the app pushes/pulls ciphertext items
+      (messages, wrapped member records, journal entries, tombstones) to a
+      server that never holds a key. cuffedup_server.py also serves this
+      file, which is what makes the PWA installable.
+   2. PWA: manifest + service worker + mobile-first layout, 44px touch
+      targets, 16px inputs (no iOS zoom), safe-area insets, and an
+      optional lock-on-blur switch so phone users can reach Authy.
+   3. JOURNAL BRIDGE: export/import entries in journal.py's exact envelope
+      (PBKDF2-200k → AES-256-GCM, HMAC-SHA256 over Python-canonical JSON).
+   4. RETENTION: opt-in sweep of quiet, unpinned threads + per-message
+      delete, both propagated as tombstones so deletion actually sticks.
+   Carried from V4/V5: random group key wrapped per member, two-factor
+   cryptographic gate, ECDSA authorship, sealed messages, relevance
+   ranking, idle lock.
    ===================================================================== */
-const enc = new TextEncoder(), dec = new TextDecoder();
-const $ = id=>document.getElementById(id);
+/* Web Crypto exists only in a "secure context": https:// or localhost. Over a
+   plain http:// LAN address crypto.subtle is undefined and every key operation
+   here fails. Say so plainly instead of dying at the first keystroke. */
+if (!window.isSecureContext || !(window.crypto && window.crypto.subtle)){
+  document.querySelector('.wrap').innerHTML = `
+    <div class="panel" style="border-color:rgba(226,75,74,.5)">
+      <h2 style="color:#F09595">Encryption unavailable at this address</h2>
+      <p class="note">You opened this over <span class="mono">${location.protocol}//${location.host}</span>.
+      Browsers only hand out the Web Crypto engine on a <strong>secure context</strong> — an
+      <span class="mono">https://</span> address, or <span class="mono">localhost</span> on the machine
+      running the server. Everything here is built on that engine, so the app will not run without it.</p>
+      <p class="note warn">Nothing was lost — no board on this device has been touched.</p>
+      <p class="note"><strong>Working addresses:</strong><br>
+      • <span class="mono">http://localhost:8765</span> — on the computer running cuffedup_server.py<br>
+      • any <span class="mono">https://</span> address — a tunnel or a host, which is what phones need</p>
+      <p class="note">See "Getting it onto phones" in README.md.</p>
+    </div>`;
+  throw new Error('insecure context — Web Crypto unavailable');
+}
 
+const enc = new TextEncoder(), dec = new TextDecoder(), $ = id=>document.getElementById(id);
 const b64 = {
   to:b=>{const u=new Uint8Array(b);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);},
   from:s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0))
 };
+const randId = ()=>[...crypto.getRandomValues(new Uint8Array(8))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const escapeHtml = s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-/* ---------- base32 (RFC 4648) for TOTP secrets ---------- */
+/* ---------- base32 + TOTP (RFC 4648 / 6238) ---------- */
 const B32A="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function b32encode(bytes){let bits=0,val=0,out="";for(const b of bytes){val=(val<<8)|b;bits+=8;while(bits>=5){out+=B32A[(val>>>(bits-5))&31];bits-=5;}}if(bits>0)out+=B32A[(val<<(5-bits))&31];return out;}
 function b32decode(s){let bits=0,val=0;const out=[];for(const c of s.replace(/=+$/,'').toUpperCase()){const i=B32A.indexOf(c);if(i<0)continue;val=(val<<5)|i;bits+=5;if(bits>=8){out.push((val>>>(bits-8))&255);bits-=8;}}return new Uint8Array(out);}
-
-/* ---------- TOTP (RFC 6238, HMAC-SHA1, 30s, 6 digits) ---------- */
 async function totp(secretB32, forStep=0){
   const key = await crypto.subtle.importKey('raw', b32decode(secretB32), {name:'HMAC',hash:'SHA-1'}, false, ['sign']);
-  const step = Math.floor(Date.now()/30000)+forStep;
-  const buf = new ArrayBuffer(8); const view = new DataView(buf);
-  view.setUint32(4, step);
+  const buf = new ArrayBuffer(8); new DataView(buf).setUint32(4, Math.floor(Date.now()/30000)+forStep);
   const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, buf));
   const off = mac[19]&0xf;
-  const code = ((mac[off]&0x7f)<<24 | mac[off+1]<<16 | mac[off+2]<<8 | mac[off+3]) % 1000000;
-  return String(code).padStart(6,'0');
+  return String(((mac[off]&0x7f)<<24 | mac[off+1]<<16 | mac[off+2]<<8 | mac[off+3]) % 1000000).padStart(6,'0');
 }
-async function totpValid(secretB32, code){
-  for (const w of [-1,0,1]) if (await totp(secretB32,w) === code) return true;  // ±30s clock drift
-  return false;
-}
+async function totpValid(secret, code){ for (const w of [-1,0,1]) if (await totp(secret,w)===code) return true; return false; }
 
-/* ---------- KDF + AES helpers ---------- */
-async function pbkdf2Key(input, salt){
-  const material = await crypto.subtle.importKey('raw', enc.encode(input), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'}, material,
-    {name:'AES-GCM',length:256}, false, ['encrypt','decrypt']);
+/* ---------- KDF + AES ---------- */
+async function pbkdf2Bits(input, salt, iter=200000){
+  const material = await crypto.subtle.importKey('raw', enc.encode(input), 'PBKDF2', false, ['deriveBits']);
+  return crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'}, material, 256);
 }
-async function aesEnc(key, dataBytes, aadStr){
+async function pbkdf2Key(input, salt, iter){
+  return crypto.subtle.importKey('raw', await pbkdf2Bits(input, salt, iter), {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+}
+async function aesEnc(key, dataBytes, aad){
   const nonce = crypto.getRandomValues(new Uint8Array(12));
-  const params = {name:'AES-GCM',iv:nonce};
-  if (aadStr) params.additionalData = enc.encode(aadStr);
-  const ct = await crypto.subtle.encrypt(params, key, dataBytes);
-  return {nonce:b64.to(nonce), ct:b64.to(ct)};
+  const p = {name:'AES-GCM',iv:nonce}; if (aad) p.additionalData = enc.encode(aad);
+  return {nonce:b64.to(nonce), ct:b64.to(await crypto.subtle.encrypt(p, key, dataBytes))};
 }
-async function aesDec(key, blob, aadStr){
-  const params = {name:'AES-GCM',iv:b64.from(blob.nonce)};
-  if (aadStr) params.additionalData = enc.encode(aadStr);
-  return crypto.subtle.decrypt(params, key, b64.from(blob.ct));
+async function aesDec(key, blob, aad){
+  const p = {name:'AES-GCM',iv:b64.from(blob.nonce)}; if (aad) p.additionalData = enc.encode(aad);
+  return crypto.subtle.decrypt(p, key, b64.from(blob.ct));
 }
 async function sha256hex(t){const h=await crypto.subtle.digest('SHA-256',enc.encode(t));return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('');}
-function randId(){return [...crypto.getRandomValues(new Uint8Array(8))].map(b=>b.toString(16).padStart(2,'0')).join('');}
 
-/* ---------- gzip sync codes (native CompressionStream, plain fallback) ---------- */
+/* ---------- sync codes ---------- */
 async function toSyncCode(json){
   try{
-    const cs = new CompressionStream('gzip');
-    const stream = new Blob([json]).stream().pipeThrough(cs);
-    const buf = await new Response(stream).arrayBuffer();
-    return 'CUB5:'+b64.to(buf);
-  }catch{ return 'CUB5P:'+b64.to(enc.encode(json)); }
+    const buf = await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+    return 'CUB6:'+b64.to(buf);
+  }catch{ return 'CUB6P:'+b64.to(enc.encode(json)); }
 }
 async function fromSyncCode(text){
   text = text.trim();
-  if (text.startsWith('CUB5:')){
-    const ds = new DecompressionStream('gzip');
-    const stream = new Blob([b64.from(text.slice(5))]).stream().pipeThrough(ds);
-    return JSON.parse(await new Response(stream).text());
+  for (const [tag, gz] of [['CUB6:',1],['CUB5:',1],['CUB6P:',0],['CUB5P:',0]]){
+    if (!text.startsWith(tag)) continue;
+    const raw = b64.from(text.slice(tag.length));
+    if (!gz) return JSON.parse(dec.decode(raw));
+    return JSON.parse(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
   }
-  if (text.startsWith('CUB5P:')) return JSON.parse(dec.decode(b64.from(text.slice(6))));
-  return JSON.parse(text);   // raw JSON (v4 export files pasted directly) also accepted
+  return JSON.parse(text);              // raw V4/V5 export JSON also accepted
 }
 
-/* ---------- board state ---------- */
-let board = null;         // {version, boardId, members:{}, messages:[], journals:{name:[entries]}}
-let session = null;       // {name, groupKey, signKey, journalKey}
-let failCount = 0, coolUntil = 0;
-let suppressLock = false;
-let idleDeadline = 0, idleInterval = null;
-let demoInterval = null;
-let replyTo = null;                 // {id, author} while composing a reply
-let showArchived = false;
-let sessionLastSeen = 0;            // watermark captured at unlock, for NEW badges
+/* ---------- state ---------- */
+let board=null, session=null, failCount=0, coolUntil=0, suppressLock=false;
+let idleDeadline=0, idleInterval=null, demoInterval=null, relayInterval=null;
+let replyTo=null, showArchived=false, sessionLastSeen=0, relayBusy=false;
+const revealed = new Map();
 
-/* ---------- device persistence (availability pillar) ---------- */
-const LS_KEY = 'cuffedupboard.v5';
-function saveLocal(){
-  if (!board || board.groupKeyRawTemp) return;   // never persist the raw key during the enroll ceremony
-  try{ localStorage.setItem(LS_KEY, JSON.stringify(board)); }catch{}
-}
-function loadLocal(){
-  try{ const s = localStorage.getItem(LS_KEY); return s ? migrateBoard(JSON.parse(s)) : null; }catch{ return null; }
-}
-function clearLocal(){ try{ localStorage.removeItem(LS_KEY); }catch{} }
-function seenKey(){ return 'cub5.seen.'+(board.boardId||'x')+'.'+(session?session.name:''); }
+const LS = {board:'cuffedupboard.v6', relay:'cub6.relay', blur:'cub6.blurlock'};
+const relayUrl = ()=>(localStorage.getItem(LS.relay)||'').replace(/\/+$/,'');
+const cursorKey = ()=>'cub6.cursor.'+board.boardId;
+const seenKey = ()=>'cub6.seen.'+board.boardId+'.'+(session?session.name:'');
+const blurLockOn = ()=>localStorage.getItem(LS.blur) !== '0';
 
-/* ---------- migration: accept V4 boards + fill V5 fields ---------- */
+function saveLocal(){ if (board && !board.groupKeyRawTemp) try{ localStorage.setItem(LS.board, JSON.stringify(board)); }catch{} }
+function clearLocal(){ try{ localStorage.removeItem(LS.board); localStorage.removeItem(cursorKey()); }catch{} }
+
+/* ---------- migration (V4 / V5 boards welcome) ---------- */
 function migrateBoard(b){
   if (!b || !b.members || !Array.isArray(b.messages)) throw new Error('not a board');
-  b.version = 5;
-  b.boardId = b.boardId || randId();
-  b.journals = b.journals || {};
+  b.version=6; b.boardId=b.boardId||randId(); b.journals=b.journals||{}; b.tombs=b.tombs||[];
   for (const m of b.messages){
     if (!m.id) m.id = 'v4-'+m.seq+'-'+(m.enc&&m.enc.ct?m.enc.ct.slice(0,12):randId());
-    m.pinnedBy = m.pinnedBy || [];
+    m.pinnedBy = m.pinnedBy||[];
   }
+  applyTombs(b);
   return b;
 }
 
 /* ---------- create / enroll ---------- */
 async function createBoard(){
-  const groupKeyRaw = crypto.getRandomValues(new Uint8Array(32));
-  board = { version:5, boardId:randId(), groupKeyRawTemp:b64.to(groupKeyRaw), members:{}, messages:[], journals:{} };
+  board = { version:6, boardId:randId(), groupKeyRawTemp:b64.to(crypto.getRandomValues(new Uint8Array(32))),
+            members:{}, messages:[], journals:{}, tombs:[] };
   $('setup').classList.add('hidden'); $('enroll').classList.remove('hidden');
 }
 
 async function enroll(){
   $('enrollErr').textContent='';
-  const name = $('enName').value.trim();
-  const pw = $('enPw').value;
-  if(!name){$('enrollErr').textContent='Name required.';return;}
-  if(board.members[name]){$('enrollErr').textContent='That name is already enrolled.';return;}
-  if(pw.length<8){$('enrollErr').textContent='Password needs 8+ characters.';return;}
+  const name = $('enName').value.trim(), pw = $('enPw').value;
+  if(!name) return $('enrollErr').textContent='Name required.';
+  if(board.members[name]) return $('enrollErr').textContent='That name is already enrolled.';
+  if(pw.length<8) return $('enrollErr').textContent='Password needs 8+ characters.';
 
   const totpSecret = b32encode(crypto.getRandomValues(new Uint8Array(20)));
-  const salt1 = crypto.getRandomValues(new Uint8Array(16));   // for password-only stage
-  const salt2 = crypto.getRandomValues(new Uint8Array(16));   // for password+secret stage
+  const salt1 = crypto.getRandomValues(new Uint8Array(16));   // password-only stage
+  const salt2 = crypto.getRandomValues(new Uint8Array(16));   // password+secret stage
 
-  // Stage-1 key (password only) protects the TOTP secret so the app can verify codes.
-  const kPw = await pbkdf2Key(pw, salt1);
-  const totpBlob = await aesEnc(kPw, enc.encode(totpSecret));
-
-  // Stage-2 key (password + TOTP secret) — the CRYPTOGRAPHIC GATE.
-  const kMember = await pbkdf2Key(pw + '::' + totpSecret, salt2);
+  const totpBlob = await aesEnc(await pbkdf2Key(pw, salt1), enc.encode(totpSecret));
+  const kMember  = await pbkdf2Key(pw + '::' + totpSecret, salt2);   // the cryptographic gate
 
   const pair = await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'}, true, ['sign','verify']);
-  const privJwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
-  const pubJwk  = await crypto.subtle.exportKey('jwk', pair.publicKey);
+  const payload = JSON.stringify({
+    groupKeyRaw: board.groupKeyRawTemp,
+    signPriv: await crypto.subtle.exportKey('jwk', pair.privateKey),
+    journalKeyRaw: b64.to(crypto.getRandomValues(new Uint8Array(32)))
+  });
 
-  // V5: a personal journal key rides inside the member wrap — group can't read it.
-  const journalKeyRaw = b64.to(crypto.getRandomValues(new Uint8Array(32)));
-
-  const payload = JSON.stringify({ groupKeyRaw: board.groupKeyRawTemp, signPriv: privJwk, journalKeyRaw });
-  const wrapBlob = await aesEnc(kMember, enc.encode(payload));
-
-  board.members[name] = { salt1:b64.to(salt1), salt2:b64.to(salt2), totpBlob, wrapBlob, pubJwk };
+  board.members[name] = { salt1:b64.to(salt1), salt2:b64.to(salt2), totpBlob,
+    wrapBlob: await aesEnc(kMember, enc.encode(payload)),
+    pubJwk: await crypto.subtle.exportKey('jwk', pair.publicKey) };
 
   $('enName').value=''; $('enPw').value='';
   $('secretReveal').classList.remove('hidden');
   $('enrollOk').textContent = name + ' enrolled. Group key + private journal key wrapped to their personal key.';
   $('totpSecret').textContent = totpSecret;
-  $('totpUri').textContent = 'otpauth://totp/CuffedUpBoard:' + encodeURIComponent(name) + '?secret=' + totpSecret + '&issuer=CuffedUpBoard';
+  $('totpUri').textContent = 'otpauth://totp/CuffedUpBoard:'+encodeURIComponent(name)+'?secret='+totpSecret+'&issuer=CuffedUpBoard';
   renderMembers();
   $('btnDone').disabled = Object.keys(board.members).length < 2;
 }
@@ -423,66 +471,50 @@ function renderMembers(){
 }
 
 function goLogin(){
-  delete board.groupKeyRawTemp;  // admin ceremony over — raw key no longer stored anywhere
+  delete board.groupKeyRawTemp;     // ceremony over — raw key exists nowhere now
   saveLocal();
-  $('enroll').classList.add('hidden');
-  $('secretReveal').classList.add('hidden');
+  $('enroll').classList.add('hidden'); $('secretReveal').classList.add('hidden');
   showLogin();
 }
 
 function showLogin(){
-  $('login').classList.remove('hidden');
-  $('setup').classList.add('hidden');
-  $('unlocked').classList.add('hidden');
-  $('sessionBar').classList.add('hidden');
-  const sel = $('liWho');
-  sel.innerHTML = Object.keys(board.members).map(n=>'<option>'+escapeHtml(n)+'</option>').join('');
+  $('login').classList.remove('hidden'); $('setup').classList.add('hidden');
+  $('unlocked').classList.add('hidden'); $('sessionBar').classList.add('hidden');
+  $('liWho').innerHTML = Object.keys(board.members).map(n=>'<option>'+escapeHtml(n)+'</option>').join('');
   $('liPw').value=''; $('liCode').value=''; $('loginErr').textContent='';
   stopDemoAuth();
 }
 
-/* ---------- two-factor unlock (the gate) ---------- */
+/* ---------- two-factor unlock ---------- */
 async function unlock(){
   $('loginErr').textContent='';
-  if (Date.now() < coolUntil){
-    $('loginErr').textContent = 'Cooldown active — wait ' + Math.ceil((coolUntil-Date.now())/1000) + 's.';
-    return;
-  }
+  if (Date.now() < coolUntil)
+    return $('loginErr').textContent = 'Cooldown active — wait '+Math.ceil((coolUntil-Date.now())/1000)+'s.';
   const name = $('liWho').value, pw = $('liPw').value, code = $('liCode').value.trim();
   const m = board.members[name];
-  if (!m || !pw || code.length!==6){ $('loginErr').textContent='Enter password and 6-digit code.'; return; }
+  if (!m || !pw || code.length!==6) return $('loginErr').textContent='Enter password and 6-digit code.';
 
   try{
-    // Stage 1 — factor 1: password unlocks the TOTP secret
-    const kPw = await pbkdf2Key(pw, b64.from(m.salt1));
-    const totpSecret = dec.decode(await aesDec(kPw, m.totpBlob));
-
-    // Factor 2: the rotating code must verify against the secret
+    const totpSecret = dec.decode(await aesDec(await pbkdf2Key(pw, b64.from(m.salt1)), m.totpBlob));
     if (!await totpValid(totpSecret, code)) throw new Error('bad-code');
 
-    // Stage 2 — cryptographic gate: password + secret derive the member key
     const kMember = await pbkdf2Key(pw + '::' + totpSecret, b64.from(m.salt2));
     const payload = JSON.parse(dec.decode(await aesDec(kMember, m.wrapBlob)));
-
-    // V4 boards have no journal key yet — mint one and rewrap in place.
-    if (!payload.journalKeyRaw){
+    if (!payload.journalKeyRaw){                 // V4 member — mint a journal key and rewrap
       payload.journalKeyRaw = b64.to(crypto.getRandomValues(new Uint8Array(32)));
       m.wrapBlob = await aesEnc(kMember, enc.encode(JSON.stringify(payload)));
       saveLocal();
     }
-
-    const groupKey   = await crypto.subtle.importKey('raw', b64.from(payload.groupKeyRaw), {name:'AES-GCM'}, false, ['encrypt','decrypt']);
-    const signKey    = await crypto.subtle.importKey('jwk', payload.signPriv, {name:'ECDSA',namedCurve:'P-256'}, false, ['sign']);
-    const journalKey = await crypto.subtle.importKey('raw', b64.from(payload.journalKeyRaw), {name:'AES-GCM'}, false, ['encrypt','decrypt']);
-
-    session = { name, groupKey, signKey, journalKey };
+    session = { name,
+      groupKey:   await crypto.subtle.importKey('raw', b64.from(payload.groupKeyRaw), {name:'AES-GCM'}, false, ['encrypt','decrypt']),
+      signKey:    await crypto.subtle.importKey('jwk', payload.signPriv, {name:'ECDSA',namedCurve:'P-256'}, false, ['sign']),
+      journalKey: await crypto.subtle.importKey('raw', b64.from(payload.journalKeyRaw), {name:'AES-GCM'}, false, ['encrypt','decrypt']) };
     failCount = 0;
     sessionLastSeen = +(localStorage.getItem(seenKey())||0);
     enterBoard();
     localStorage.setItem(seenKey(), String(Date.now()));
   }catch(e){
-    failCount++;
-    if (failCount >= 5){ coolUntil = Date.now()+60000; failCount = 0;
+    if (++failCount >= 5){ coolUntil = Date.now()+60000; failCount = 0;
       $('cooldownNote').textContent = '5 failed attempts — unlock disabled for 60 seconds.';
       setTimeout(()=>$('cooldownNote').textContent='', 61000);
     }
@@ -490,7 +522,6 @@ async function unlock(){
   }
 }
 
-/* ---------- tabs ---------- */
 function showTab(which){
   for (const [tab,panel] of [['tabBoard','board'],['tabJournal','journal'],['tabSync','sync']]){
     $(tab).classList.toggle('active', panel===which);
@@ -498,133 +529,171 @@ function showTab(which){
   }
   bumpIdle();
 }
+function renderAll(){ renderMessages(); renderJournal(); }
 
 function enterBoard(){
-  $('login').classList.add('hidden');
-  $('unlocked').classList.remove('hidden');
-  $('sessionBar').classList.remove('hidden');
+  $('login').classList.add('hidden'); $('unlocked').classList.remove('hidden'); $('sessionBar').classList.remove('hidden');
   $('whoami').textContent = '· unlocked as ' + session.name;
   $('journalWho').textContent = '· ' + session.name + ' only';
-  showTab('board');
-  renderMessages();
-  renderJournal();
-  armIdle();
+  $('relayInput').value = relayUrl();
+  $('retentionSel').value = String(board.retentionDays||0);
+  $('blurLockChk').checked = blurLockOn();
+  const swept = sweepRetention();
+  showTab('board'); renderAll(); armIdle(); startRelay();
+  if (swept) $('retentionOk').textContent = swept+' message(s) past the retention window were deleted.';
 }
 
-/* ---------- posting (threads + topics) ---------- */
+/* ---------- posting ---------- */
 async function post(){
   const text = $('draft').value.trim();
   if (!text || !session) return;
   const seq = board.messages.length ? Math.max(...board.messages.map(m=>m.seq))+1 : 1;
-  const encBlob = await aesEnc(session.groupKey, enc.encode(text));
-  const msg = { v:5, id:randId(), seq, author: session.name, ts: new Date().toISOString(),
-                enc: encBlob, plaintext_sha256: await sha256hex(text),
+  const msg = { v:5, id:randId(), seq, author:session.name, ts:new Date().toISOString(),
+                enc: await aesEnc(session.groupKey, enc.encode(text)),
+                plaintext_sha256: await sha256hex(text),
                 replyTo: replyTo ? replyTo.id : null,
-                topic: ($('draftTopic').value.trim() || null),
-                pinnedBy: [] };
-  const sig = await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'}, session.signKey,
-    enc.encode(canonicalMsg(msg)));
-  msg.sig = b64.to(sig);
+                topic: $('draftTopic').value.trim() || null, pinnedBy: [] };
+  msg.sig = b64.to(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'}, session.signKey, enc.encode(canonicalMsg(msg))));
   board.messages.push(msg);
-  $('draft').value=''; $('draftTopic').value='';
-  cancelReply();
-  saveLocal();
-  renderMessages();
-  bumpIdle();
+  $('draft').value=''; $('draftTopic').value=''; cancelReply();
+  saveLocal(); renderMessages(); bumpIdle(); relaySync();
 }
 
 function canonicalMsg(m){
-  if (m.v === 5)
-    return JSON.stringify({v:5, id:m.id, seq:m.seq, author:m.author, ts:m.ts,
-      ct:m.enc.ct, nonce:m.enc.nonce, h:m.plaintext_sha256,
-      replyTo:m.replyTo||null, topic:m.topic||null});
-  return JSON.stringify({seq:m.seq, author:m.author, ts:m.ts, ct:m.enc.ct, nonce:m.enc.nonce, h:m.plaintext_sha256});
+  return m.v === 5
+    ? JSON.stringify({v:5, id:m.id, seq:m.seq, author:m.author, ts:m.ts, ct:m.enc.ct, nonce:m.enc.nonce,
+                      h:m.plaintext_sha256, replyTo:m.replyTo||null, topic:m.topic||null})
+    : JSON.stringify({seq:m.seq, author:m.author, ts:m.ts, ct:m.enc.ct, nonce:m.enc.nonce, h:m.plaintext_sha256});
 }
 
-function startReply(id, author){ replyTo = {id, author};
-  $('replyBar').classList.remove('hidden'); $('replyWho').textContent = author;
-  $('draft').focus(); bumpIdle(); }
-function cancelReply(){ replyTo = null; $('replyBar').classList.add('hidden'); }
+function startReply(id, author){
+  replyTo={id,author}; $('replyBar').classList.remove('hidden'); $('replyWho').textContent=author;
+  $('draft').focus(); bumpIdle();
+}
+function cancelReply(){ replyTo=null; $('replyBar').classList.add('hidden'); }
 
 async function togglePin(id){
-  if (!session) return;
-  const m = board.messages.find(x=>x.id===id);
+  const m = session && board.messages.find(x=>x.id===id);
   if (!m) return;
-  m.pinnedBy = m.pinnedBy || [];
+  m.pinnedBy = m.pinnedBy||[];
   const i = m.pinnedBy.indexOf(session.name);
-  if (i>=0) m.pinnedBy.splice(i,1); else m.pinnedBy.push(session.name);
-  saveLocal();
-  renderMessages();
+  i>=0 ? m.pinnedBy.splice(i,1) : m.pinnedBy.push(session.name);
+  saveLocal(); renderMessages(); relaySync();
 }
 
-/* ---------- RELEVANCE ENGINE ----------
-   Thread score = pin bonus + reply weight + recency decay of the thread's
-   LAST activity (48-hour half-life). Below the archive threshold
-   (≈ 7 quiet days) a thread collapses into the archive — unless pinned. */
+/* ---------- tombstones + retention ---------- */
+function tomb(id, by){
+  board.tombs = board.tombs||[];
+  if (!board.tombs.some(t=>t.id===id)) board.tombs.push({id, ts:new Date().toISOString(), by:by||'retention'});
+}
+function applyTombs(b){
+  const dead = new Set((b.tombs||[]).map(t=>t.id));
+  if (!dead.size) return;
+  b.messages = b.messages.filter(m=>!dead.has(m.id));
+  for (const k of Object.keys(b.journals||{})) b.journals[k] = b.journals[k].filter(e=>!dead.has(e.id));
+}
+function sweepRetention(){
+  const days = board.retentionDays||0;
+  if (!days) return 0;
+  const cutoff = Date.now() - days*86400000, byId = new Map(board.messages.map(m=>[m.id,m]));
+  let n = 0;
+  for (const r of board.messages.filter(m=>!m.replyTo || !byId.has(m.replyTo))){
+    if (r.pinnedBy && r.pinnedBy.length) continue;
+    const reps = board.messages.filter(m=>m.replyTo===r.id);
+    const last = Math.max(+new Date(r.ts), ...reps.map(x=>+new Date(x.ts)));
+    if (last < cutoff) for (const m of [r,...reps]){ tomb(m.id); n++; }
+  }
+  if (n){ applyTombs(board); saveLocal(); relaySync(); }
+  return n;
+}
+function deleteMine(id){
+  const m = board.messages.find(x=>x.id===id);
+  if (!m || !session || m.author!==session.name) return;
+  if (!confirm('Delete your message permanently? A tombstone travels with the next sync so every copy — and the relay — drops the ciphertext.')) return;
+  tomb(id, session.name); applyTombs(board); saveLocal(); renderMessages(); relaySync();
+}
+function deleteEntry(id){
+  if (!confirm('Delete this journal entry permanently?')) return;
+  tomb(id, session.name); applyTombs(board); saveLocal(); renderJournal(); relaySync();
+}
+
+/* ---------- relevance engine ----------
+   score = pin bonus + reply weight + recency decay of last activity
+   (48h half-life). Under the threshold (~7 quiet days) a thread archives. */
 const HALF_LIFE_H = 48, ARCHIVE_THRESHOLD = 0.09;
 function threadScore(root, replies){
-  const lastTs = Math.max(+new Date(root.ts), ...replies.map(r=>+new Date(r.ts)));
-  const ageH = Math.max(0, (Date.now()-lastTs)/3600000);
-  const pinBonus = (root.pinnedBy&&root.pinnedBy.length) ? 10 : 0;
-  return pinBonus + replies.length*1.5 + Math.pow(2, -ageH/HALF_LIFE_H);
+  const last = Math.max(+new Date(root.ts), ...replies.map(r=>+new Date(r.ts)));
+  const ageH = Math.max(0, (Date.now()-last)/3600000);
+  return ((root.pinnedBy&&root.pinnedBy.length) ? 10 : 0) + replies.length*1.5 + Math.pow(2, -ageH/HALF_LIFE_H);
 }
 
 function renderMessages(){
-  const box = $('messages');
-  box.innerHTML = '';
-  if (!board.messages.length){ box.innerHTML = '<p class="empty">No messages yet. Post the first one below.</p>'; return; }
-
+  const box = $('messages'); box.innerHTML='';
+  if (!board.messages.length) return box.innerHTML = '<p class="empty">No messages yet. Post the first one below.</p>';
   const byId = new Map(board.messages.map(m=>[m.id,m]));
-  const roots = board.messages.filter(m=>!m.replyTo || !byId.has(m.replyTo));
   const repliesOf = id => board.messages.filter(m=>m.replyTo===id).sort((a,b)=>+new Date(a.ts)-+new Date(b.ts));
-
-  const scored = roots.map(r=>{ const reps = repliesOf(r.id); return {r, reps, score: threadScore(r, reps)}; });
-  const active   = scored.filter(t=>t.score >= ARCHIVE_THRESHOLD).sort((a,b)=>b.score-a.score);
-  const archived = scored.filter(t=>t.score <  ARCHIVE_THRESHOLD).sort((a,b)=>+new Date(b.r.ts)-+new Date(a.r.ts));
-
-  const renderThread = t => { appendMsgCard(box, t.r, false); for (const rep of t.reps) appendMsgCard(box, rep, true); };
-  active.forEach(renderThread);
-
+  const scored = board.messages.filter(m=>!m.replyTo || !byId.has(m.replyTo))
+    .map(r=>{ const reps = repliesOf(r.id); return {r, reps, score:threadScore(r,reps)}; });
+  const active   = scored.filter(t=>t.score>=ARCHIVE_THRESHOLD).sort((a,b)=>b.score-a.score);
+  const archived = scored.filter(t=>t.score< ARCHIVE_THRESHOLD).sort((a,b)=>+new Date(b.r.ts)-+new Date(a.r.ts));
+  const draw = t => { card(box, t.r, false); t.reps.forEach(rep=>card(box, rep, true)); };
+  active.forEach(draw);
   if (archived.length){
     const btn = document.createElement('button');
     btn.type='button'; btn.className='archive-toggle';
-    btn.textContent = (showArchived?'▾ Hide':'▸ Show')+' archive — '+archived.length+' quiet thread'+(archived.length>1?'s':'')+' (no activity in ~a week)';
-    btn.addEventListener('click', ()=>{ showArchived=!showArchived; renderMessages(); });
+    btn.textContent = (showArchived?'▾ Hide':'▸ Show')+' archive — '+archived.length+' quiet thread'+(archived.length>1?'s':'');
+    btn.onclick = ()=>{ showArchived=!showArchived; renderMessages(); };
     box.appendChild(btn);
-    if (showArchived) archived.forEach(renderThread);
+    if (showArchived) archived.forEach(draw);
   }
 }
 
-function appendMsgCard(box, m, isReply){
+function card(box, m, isReply){
   const el = document.createElement('article');
-  el.className = 'msg' + (isReply?' reply-card':'') + ((m.pinnedBy&&m.pinnedBy.length)?' pinned-card':'');
+  const pinned = m.pinnedBy && m.pinnedBy.length;
+  el.className = 'msg'+(isReply?' reply-card':'')+(pinned?' pinned-card':'');
   const isNew = session && m.author!==session.name && +new Date(m.ts) > sessionLastSeen;
   el.innerHTML = `
-    <div class="msg-head"><span class="author">${(m.pinnedBy&&m.pinnedBy.length)?'📌 ':''}${escapeHtml(m.author)}</span>
-    <span>${m.topic?'<span class="badge badge-topic">#'+escapeHtml(m.topic)+'</span> ':''}${isNew?'<span class="badge badge-new">NEW</span> ':''}<span class="when">#${String(m.seq).padStart(3,'0')} · ${new Date(m.ts).toLocaleString()}</span></span></div>
-    <div class="sealed" role="button" tabindex="0" data-id="${m.id}">🔒 Sealed — tap to decrypt &amp; verify</div>
+    <div class="msg-head"><span class="author">${pinned?'📌 ':''}${escapeHtml(m.author)}</span>
+      <span>${m.topic?'<span class="badge badge-topic">#'+escapeHtml(m.topic)+'</span> ':''}${isNew?'<span class="badge badge-new">NEW</span> ':''}<span class="when">#${String(m.seq).padStart(3,'0')} · ${new Date(m.ts).toLocaleString()}</span></span></div>
+    <div class="sealed" role="button" tabindex="0">🔒 Sealed — tap to decrypt &amp; verify</div>
     <div class="msg-actions">
-      <button class="btn btn-ghost btn-mini act-reply" data-id="${m.id}" data-author="${escapeHtml(m.author)}" type="button">↩ Reply</button>
-      <button class="btn btn-ghost btn-mini act-pin" data-id="${m.id}" type="button">${(m.pinnedBy&&m.pinnedBy.includes(session?session.name:''))?'Unpin':'📌 Pin'}</button>
+      <button class="btn btn-ghost btn-mini a-reply" type="button">↩ Reply</button>
+      <button class="btn btn-ghost btn-mini a-pin" type="button">${m.pinnedBy&&m.pinnedBy.includes(session?session.name:'')?'Unpin':'📌 Pin'}</button>
+      ${session && m.author===session.name ? '<button class="btn btn-ghost btn-mini a-del" type="button">🗑 Delete</button>' : ''}
     </div>`;
   box.appendChild(el);
-  const s = el.querySelector('.sealed');
-  s.addEventListener('click', ()=>reveal(m.id, el));
-  s.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') reveal(m.id, el); });
-  el.querySelector('.act-reply').addEventListener('click', e=>startReply(e.currentTarget.dataset.id, e.currentTarget.dataset.author));
-  el.querySelector('.act-pin').addEventListener('click', e=>togglePin(e.currentTarget.dataset.id));
+  const s = el.querySelector('.sealed'), open = ()=>reveal(m, el);
+  s.onclick = open;
+  s.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } };
+  el.querySelector('.a-reply').onclick = ()=>startReply(m.id, m.author);
+  el.querySelector('.a-pin').onclick   = ()=>togglePin(m.id);
+  const d = el.querySelector('.a-del'); if (d) d.onclick = ()=>deleteMine(m.id);
 }
 
-const revealed = new Map();
+/* ---------- unsealing (shared by board + journal) ---------- */
+function unseal(card, ok, body, badges, onExpire){
+  const sealed = card.querySelector('.sealed');
+  if (!sealed) return;
+  sealed.outerHTML = `
+    <div class="body">${ok ? escapeHtml(body) : '<span class="err">Verification failed — not shown.</span>'}</div>
+    <div class="badges">${badges}<span class="reseal">re-seals in 30s</span></div>`;
+  const counter = card.querySelector('.reseal');
+  let left = 30;
+  const t = setInterval(()=>{
+    left--;
+    if (counter) counter.textContent = 're-seals in '+Math.max(left,0)+'s';
+    if (left <= 0){ clearInterval(t); onExpire(); }
+  }, 1000);
+  return t;
+}
 
-async function reveal(id, card){
+async function reveal(m, cardEl){
   if (!session) return;
   bumpIdle();
-  const m = board.messages.find(x=>x.id===id);
-  const member = board.members[m.author];
   let sigOK=false, gcmOK=false, hashOK=false, body='';
   try{
-    const pub = await crypto.subtle.importKey('jwk', member.pubJwk, {name:'ECDSA',namedCurve:'P-256'}, false, ['verify']);
+    const pub = await crypto.subtle.importKey('jwk', board.members[m.author].pubJwk, {name:'ECDSA',namedCurve:'P-256'}, false, ['verify']);
     sigOK = await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'}, pub, b64.from(m.sig), enc.encode(canonicalMsg(m)));
   }catch{}
   try{
@@ -632,70 +701,53 @@ async function reveal(id, card){
     gcmOK = true;
     hashOK = (await sha256hex(body)) === m.plaintext_sha256;
   }catch{}
-  const ok = sigOK && gcmOK && hashOK;
-
-  const sealedEl = card.querySelector('.sealed');
-  if (!sealedEl) return;
-  sealedEl.outerHTML = `
-    <div class="body">${ok ? escapeHtml(body) : '<span class="err">Verification failed — message not shown.</span>'}</div>
-    <div class="badges">
-      <span class="badge ${sigOK?'':'badge-fail'}">SIG ${sigOK ? 'VERIFIED · '+escapeHtml(m.author).toUpperCase() : 'FAIL'}</span>
-      <span class="badge ${gcmOK?'':'badge-fail'}">AES-GCM ${gcmOK?'PASS':'FAIL'}</span>
-      <span class="badge ${hashOK?'':'badge-fail'}">SHA-256 ${hashOK?'PASS':'FAIL'}</span>
-      <span class="reseal" data-count="30">re-seals in 30s</span>
-    </div>`;
-  const counter = card.querySelector('.reseal');
-  let left = 30;
-  const t = setInterval(()=>{ left--; if(counter) counter.textContent='re-seals in '+left+'s';
-    if(left<=0){ clearInterval(t); revealed.delete(id); renderMessages(); } }, 1000);
-  revealed.set(id, t);
+  const badges =
+    `<span class="badge ${sigOK?'':'badge-fail'}">SIG ${sigOK?'VERIFIED · '+escapeHtml(m.author).toUpperCase():'FAIL'}</span>
+     <span class="badge ${gcmOK?'':'badge-fail'}">AES-GCM ${gcmOK?'PASS':'FAIL'}</span>
+     <span class="badge ${hashOK?'':'badge-fail'}">SHA-256 ${hashOK?'PASS':'FAIL'}</span>`;
+  const t = unseal(cardEl, sigOK&&gcmOK&&hashOK, body, badges, ()=>{ revealed.delete(m.id); renderMessages(); });
+  revealed.set(m.id, t);
 }
 
-/* ---------- PERSONAL JOURNAL (from CuffedUpCloud journal.py) ----------
-   Envelope: {v:5, id, seq, ts, enc:{nonce,ct}, plaintext_sha256}
-   AAD binds {owner,id,seq,ts} into the GCM tag — touching the metadata
-   breaks decryption (the HMAC layer of journal.py, done natively). */
-function journalAad(owner, e){ return JSON.stringify({j:5, owner, id:e.id, seq:e.seq, ts:e.ts}); }
-function myEntries(){ return (board.journals[session.name]||[]).slice().sort((a,b)=>b.seq-a.seq); }
+/* ---------- personal journal ---------- */
+const journalAad = (owner,e)=>JSON.stringify({j:5, owner, id:e.id, seq:e.seq, ts:e.ts});
+const myEntries  = ()=>(board.journals[session.name]||[]).slice().sort((a,b)=>b.seq-a.seq);
 
 async function journalSave(){
   const text = $('journalDraft').value.trim();
   if (!text || !session) return;
   const mine = board.journals[session.name] = board.journals[session.name]||[];
-  const seq = mine.length ? Math.max(...mine.map(e=>e.seq))+1 : 1;
-  const e = { v:5, id:randId(), seq, ts:new Date().toISOString() };
+  const e = { v:5, id:randId(), seq: mine.length ? Math.max(...mine.map(x=>x.seq))+1 : 1, ts:new Date().toISOString() };
   e.enc = await aesEnc(session.journalKey, enc.encode(text), journalAad(session.name, e));
   e.plaintext_sha256 = await sha256hex(text);
   mine.push(e);
   $('journalDraft').value='';
-  saveLocal();
-  renderJournal();
-  $('journalOk').textContent = 'Entry #'+seq+' saved — '+text.length+' chars, AES-256-GCM, metadata bound as AAD.';
-  setTimeout(()=>{ $('journalOk').textContent=''; }, 5000);
+  saveLocal(); renderJournal(); relaySync();
+  $('journalOk').textContent = 'Entry #'+e.seq+' saved — '+text.length+' chars, AES-256-GCM, metadata bound as AAD.';
+  setTimeout(()=>$('journalOk').textContent='', 5000);
   bumpIdle();
 }
 
 function renderJournal(){
-  const box = $('journalEntries');
-  box.innerHTML = '';
+  const box = $('journalEntries'); box.innerHTML='';
   const entries = myEntries();
-  if (!entries.length){ box.innerHTML = '<p class="empty">No journal entries yet. This space is yours alone.</p>'; return; }
+  if (!entries.length) return box.innerHTML = '<p class="empty">No journal entries yet. This space is yours alone.</p>';
   for (const e of entries){
     const el = document.createElement('article');
-    el.className = 'msg';
+    el.className='msg';
     el.innerHTML = `
-      <div class="msg-head"><span class="author">Entry #${e.seq}</span>
-      <span class="when">${new Date(e.ts).toLocaleString()}</span></div>
-      <div class="sealed" role="button" tabindex="0">🔒 Sealed — tap to decrypt &amp; verify</div>`;
+      <div class="msg-head"><span class="author">Entry #${e.seq}</span><span class="when">${new Date(e.ts).toLocaleString()}</span></div>
+      <div class="sealed" role="button" tabindex="0">🔒 Sealed — tap to decrypt &amp; verify</div>
+      <div class="msg-actions"><button class="btn btn-ghost btn-mini a-del" type="button">🗑 Delete</button></div>`;
     box.appendChild(el);
-    const s = el.querySelector('.sealed');
-    const open = ()=>revealEntry(e, el);
-    s.addEventListener('click', open);
-    s.addEventListener('keydown', ev=>{ if(ev.key==='Enter'||ev.key===' ') open(); });
+    const s = el.querySelector('.sealed'), open = ()=>revealEntry(e, el);
+    s.onclick = open;
+    s.onkeydown = ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); open(); } };
+    el.querySelector('.a-del').onclick = ()=>deleteEntry(e.id);
   }
 }
 
-async function revealEntry(e, card){
+async function revealEntry(e, cardEl){
   if (!session) return;
   bumpIdle();
   let gcmOK=false, hashOK=false, body='';
@@ -704,61 +756,160 @@ async function revealEntry(e, card){
     gcmOK = true;
     hashOK = (await sha256hex(body)) === e.plaintext_sha256;
   }catch{}
-  const ok = gcmOK && hashOK;
-  const sealedEl = card.querySelector('.sealed');
-  if (!sealedEl) return;
-  sealedEl.outerHTML = `
-    <div class="body">${ok ? escapeHtml(body) : '<span class="err">Verification failed — entry not shown (wrong owner or tampered).</span>'}</div>
-    <div class="badges">
-      <span class="badge ${gcmOK?'':'badge-fail'}">AES-GCM+AAD ${gcmOK?'PASS':'FAIL'}</span>
-      <span class="badge ${hashOK?'':'badge-fail'}">SHA-256 ${hashOK?'PASS':'FAIL'}</span>
-      <span class="reseal">re-seals in 30s</span>
-    </div>`;
-  const counter = card.querySelector('.reseal');
-  let left = 30;
-  const t = setInterval(()=>{ left--; if(counter) counter.textContent='re-seals in '+left+'s';
-    if(left<=0){ clearInterval(t); renderJournal(); } }, 1000);
+  unseal(cardEl, gcmOK&&hashOK, body,
+    `<span class="badge ${gcmOK?'':'badge-fail'}">AES-GCM+AAD ${gcmOK?'PASS':'FAIL'}</span>
+     <span class="badge ${hashOK?'':'badge-fail'}">SHA-256 ${hashOK?'PASS':'FAIL'}</span>`,
+    renderJournal);
 }
 
 async function journalVerifyAll(){
   if (!session) return;
   const entries = myEntries();
-  if (!entries.length){ $('journalOk').textContent='No entries to verify.'; return; }
+  if (!entries.length) return $('journalOk').textContent='No entries to verify.';
   let ok=0, bad=0;
   for (const e of entries){
     try{
       const body = dec.decode(await aesDec(session.journalKey, e.enc, journalAad(session.name, e)));
-      if ((await sha256hex(body)) === e.plaintext_sha256) ok++; else bad++;
+      (await sha256hex(body)) === e.plaintext_sha256 ? ok++ : bad++;
     }catch{ bad++; }
   }
   $('journalOk').textContent = 'Integrity check: '+ok+' verified, '+bad+' failed. Nothing was displayed.';
   bumpIdle();
 }
 
-/* ---------- SYNC: copy code + merge ---------- */
-async function copySync(){
-  bumpIdle();
-  const code = await toSyncCode(JSON.stringify(board));
-  try{ await navigator.clipboard.writeText(code); $('syncCopyOk').textContent='Copied ('+Math.round(code.length/1024*10)/10+' KB) — paste it in your group chat.'; }
-  catch{
-    $('syncPaste').value = code;
-    $('syncCopyOk').textContent='Clipboard blocked — code placed in the box below, copy it manually.';
+/* ---------- journal.py bridge ----------
+   Python's json.dumps(..., sort_keys=True) writes ", " and ": " separators;
+   the HMAC only matches if we serialize identically. */
+function pyJson(v){
+  if (Array.isArray(v)) return '['+v.map(pyJson).join(', ')+']';
+  if (v && typeof v === 'object')
+    return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+': '+pyJson(v[k])).join(', ')+'}';
+  return JSON.stringify(v);
+}
+async function bridgeKeys(pass, salt){
+  const bits = await pbkdf2Bits(pass, salt, 200000);
+  return {
+    aes:  await crypto.subtle.importKey('raw', bits, {name:'AES-GCM'}, false, ['encrypt','decrypt']),
+    hmac: await crypto.subtle.importKey('raw', bits, {name:'HMAC',hash:'SHA-256'}, false, ['sign'])
+  };
+}
+const pyEnc = async (k,t)=>{ const b = await aesEnc(k, enc.encode(t));
+  return {nonce:b.nonce, ciphertext:b.ct, algorithm:'AES-256-GCM'}; };
+const pyDec = (k,e)=>aesDec(k, {nonce:e.nonce, ct:e.ciphertext});
+const pyHmac = async (k,obj)=>[...new Uint8Array(await crypto.subtle.sign('HMAC', k, enc.encode(pyJson(obj))))]
+  .map(b=>b.toString(16).padStart(2,'0')).join('');
+
+async function bridgeExport(){
+  $('bridgeErr').textContent=''; $('bridgeOk').textContent='';
+  const pass = $('bridgePw').value;
+  if (pass.length < 8) return $('bridgeErr').textContent='Use a passphrase of 8+ characters.';
+  const entries = myEntries();
+  if (!entries.length) return $('bridgeErr').textContent='No entries to export.';
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const {aes, hmac} = await bridgeKeys(pass, salt);
+  const out = [];
+  for (const e of entries.slice().sort((a,b)=>a.seq-b.seq)){
+    const text = dec.decode(await aesDec(session.journalKey, e.enc, journalAad(session.name, e)));
+    const env = { sequence:e.seq, timestamp:e.ts, encrypted:await pyEnc(aes, text), plaintext_sha256:await sha256hex(text) };
+    env.hmac = await pyHmac(hmac, env);
+    out.push(env);
   }
-  setTimeout(()=>{ $('syncCopyOk').textContent=''; }, 6000);
+  const bundle = { meta:{ salt:b64.to(salt), verifier:await pyEnc(aes,'CuffedUpCloud-verifier-v1'),
+                          pbkdf2_iterations:200000, created_at:new Date().toISOString().replace(/\.\d+Z$/,'Z') },
+                   entries: out };
+  download(JSON.stringify(bundle,null,2), 'cuffedup-journal-bundle.json');
+  $('bridgePw').value='';
+  $('bridgeOk').textContent = out.length+' entries re-encrypted under your passphrase. Run: python journal_bridge.py unpack cuffedup-journal-bundle.json my_journal';
+  bumpIdle();
 }
 
+async function bridgeImport(file){
+  $('bridgeErr').textContent=''; $('bridgeOk').textContent='';
+  const pass = $('bridgePw').value;
+  if (pass.length < 8) return $('bridgeErr').textContent='Enter the bundle passphrase first, then pick the file.';
+  try{
+    const bundle = JSON.parse(await file.text());
+    const {aes, hmac} = await bridgeKeys(pass, b64.from(bundle.meta.salt));
+    await pyDec(aes, bundle.meta.verifier);                       // fails fast on a wrong passphrase
+    const mine = board.journals[session.name] = board.journals[session.name]||[];
+    let next = mine.length ? Math.max(...mine.map(x=>x.seq))+1 : 1, added=0, bad=0;
+    for (const env of bundle.entries){
+      const {hmac:mac, ...rest} = env;
+      if (mac && mac !== await pyHmac(hmac, rest)){ bad++; continue; }
+      const text = dec.decode(await pyDec(aes, env.encrypted));
+      const e = { v:5, id:randId(), seq:next++, ts:env.timestamp||new Date().toISOString() };
+      e.enc = await aesEnc(session.journalKey, enc.encode(text), journalAad(session.name, e));
+      e.plaintext_sha256 = await sha256hex(text);
+      mine.push(e); added++;
+    }
+    $('bridgePw').value='';
+    saveLocal(); renderJournal(); relaySync();
+    $('bridgeOk').textContent = 'Imported '+added+' entries'+(bad?' ('+bad+' failed HMAC and were skipped)':'')+'.';
+  }catch{ $('bridgeErr').textContent='Could not read that bundle — wrong passphrase or not a journal bundle.'; }
+  bumpIdle();
+}
+
+/* ---------- relay (blind server) ---------- */
+function boardToItems(b){
+  const it = [];
+  for (const [n,m] of Object.entries(b.members)) it.push({kind:'member', id:n, payload:m});
+  for (const m of b.messages) it.push({kind:'message', id:m.id, payload:m});
+  for (const [owner,es] of Object.entries(b.journals||{})) for (const e of es) it.push({kind:'journal', id:e.id, owner, payload:e});
+  for (const t of (b.tombs||[])) it.push({kind:'tomb', id:t.id, payload:t});
+  return it;
+}
+function itemsToBoard(items){
+  const b = {version:6, boardId:board.boardId, members:{}, messages:[], journals:{}, tombs:[]};
+  for (const i of items){
+    if (i.kind==='member') b.members[i.id] = i.payload;
+    else if (i.kind==='message') b.messages.push(i.payload);
+    else if (i.kind==='journal') (b.journals[i.owner] = b.journals[i.owner]||[]).push(i.payload);
+    else if (i.kind==='tomb') b.tombs.push(i.payload);
+  }
+  return b;
+}
+function relayStatus(cls, text){ const d=$('relayDot'); d.className='relaydot '+cls; d.textContent=text; }
+
+async function relaySync(){
+  const url = relayUrl();
+  if (!url || !board || !session || relayBusy) return;
+  relayBusy = true;
+  try{
+    const since = +(localStorage.getItem(cursorKey())||0);
+    const res = await fetch(url+'/api/sync?board='+encodeURIComponent(board.boardId)+'&since='+since,
+      {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({items:boardToItems(board)})});
+    if (!res.ok) throw new Error('http '+res.status);
+    const data = await res.json();
+    localStorage.setItem(cursorKey(), String(data.cursor||0));
+    if (data.items && data.items.length){
+      const before = board.messages.length;
+      mergeBoards(board, itemsToBoard(data.items));
+      saveLocal();
+      if (board.messages.length !== before) renderAll(); else renderJournal();
+    }
+    relayStatus('live', '● synced');
+  }catch{ relayStatus('off', '○ no relay'); }
+  finally{ relayBusy = false; }
+}
+function startRelay(){
+  clearInterval(relayInterval);
+  if (!relayUrl()) return relayStatus('', 'relay off');
+  relayStatus('', '… syncing');
+  relaySync();
+  relayInterval = setInterval(()=>{ if (session) relaySync(); }, 12000);
+}
+
+/* ---------- merge ---------- */
 function mergeBoards(base, inc){
-  const stats = {members:0, messages:0, entries:0};
-  for (const [n,m] of Object.entries(inc.members||{}))
-    if (!base.members[n]){ base.members[n]=m; stats.members++; }
+  const stats = {members:0, messages:0, entries:0, tombs:0};
+  for (const [n,m] of Object.entries(inc.members||{})) if (!base.members[n]){ base.members[n]=m; stats.members++; }
   const ids = new Set(base.messages.map(m=>m.id));
   for (const m of (inc.messages||[])){
     if (!m.id) continue;
     if (!ids.has(m.id)){ base.messages.push(m); ids.add(m.id); stats.messages++; }
-    else {
-      const local = base.messages.find(x=>x.id===m.id);
-      local.pinnedBy = [...new Set([...(local.pinnedBy||[]), ...(m.pinnedBy||[])])];
-    }
+    else { const local = base.messages.find(x=>x.id===m.id);
+           local.pinnedBy = [...new Set([...(local.pinnedBy||[]), ...(m.pinnedBy||[])])]; }
   }
   base.journals = base.journals||{};
   for (const [owner,entries] of Object.entries(inc.journals||{})){
@@ -766,166 +917,174 @@ function mergeBoards(base, inc){
     const eids = new Set(mine.map(e=>e.id));
     for (const e of entries) if (e.id && !eids.has(e.id)){ mine.push(e); stats.entries++; }
   }
+  base.tombs = base.tombs||[];
+  const tids = new Set(base.tombs.map(t=>t.id));
+  for (const t of (inc.tombs||[])) if (t.id && !tids.has(t.id)){ base.tombs.push(t); tids.add(t.id); stats.tombs++; }
+  applyTombs(base);
   return stats;
+}
+
+async function copySync(){
+  bumpIdle();
+  const code = await toSyncCode(JSON.stringify(board));
+  suppressLock = true; setTimeout(()=>{ suppressLock=false; }, 30000);   // you're about to switch to a chat app
+  try{ await navigator.clipboard.writeText(code);
+       $('syncCopyOk').textContent = 'Copied ('+Math.round(code.length/102.4)/10+' KB) — paste it in your group chat.'; }
+  catch{ $('syncPaste').value = code; $('syncCopyOk').textContent = 'Clipboard blocked — code is in the box below.'; }
+  setTimeout(()=>$('syncCopyOk').textContent='', 8000);
 }
 
 async function doMerge(){
   $('syncErr').textContent=''; $('mergeOk').textContent='';
   const text = $('syncPaste').value.trim();
-  if (!text){ $('syncErr').textContent='Paste a sync code first.'; return; }
+  if (!text) return $('syncErr').textContent='Paste a sync code first.';
   try{
-    const inc = migrateBoard(await fromSyncCode(text));
-    const stats = mergeBoards(board, inc);
-    saveLocal();
-    $('syncPaste').value='';
-    $('mergeOk').textContent = 'Merged: +'+stats.messages+' messages, +'+stats.members+' members, +'+stats.entries+' journal entries.';
-    renderMessages(); renderJournal();
+    const s = mergeBoards(board, migrateBoard(await fromSyncCode(text)));
+    saveLocal(); $('syncPaste').value=''; renderAll(); relaySync();
+    $('mergeOk').textContent = `Merged: +${s.messages} messages, +${s.members} members, +${s.entries} journal entries, +${s.tombs} deletions.`;
   }catch{ $('syncErr').textContent='That code could not be read — not a CuffedUpBoard sync code or board JSON.'; }
   bumpIdle();
 }
 
-/* ---------- hostile session ---------- */
+/* ---------- session lock ---------- */
 function armIdle(){
-  idleDeadline = Date.now() + 90000;
+  idleDeadline = Date.now()+90000;
   clearInterval(idleInterval);
   idleInterval = setInterval(()=>{
     const left = Math.max(0, Math.ceil((idleDeadline-Date.now())/1000));
-    $('idleTimer').textContent = left + 's';
+    $('idleTimer').textContent = left+'s';
     if (left<=0) lockBoard('Locked after 90 seconds idle.');
   }, 500);
 }
-function bumpIdle(){ if(session) idleDeadline = Date.now() + 90000; }
+function bumpIdle(){ if (session) idleDeadline = Date.now()+90000; }
 ['click','keydown','input','touchstart','scroll'].forEach(ev=>document.addEventListener(ev, bumpIdle, {passive:true}));
 
 function lockBoard(reason){
   if (!session || suppressLock) return;
-  localStorage.setItem(seenKey(), String(Date.now()));
+  try{ localStorage.setItem(seenKey(), String(Date.now())); }catch{}
   session = null;                       // keys become unreachable
   revealed.forEach(t=>clearInterval(t)); revealed.clear();
-  clearInterval(idleInterval);
+  clearInterval(idleInterval); clearInterval(relayInterval);
   cancelReply();
-  $('draft').value=''; $('journalDraft').value='';
-  $('journalEntries').innerHTML=''; $('messages').innerHTML='';
+  $('draft').value=''; $('journalDraft').value=''; $('bridgePw').value='';
+  $('messages').innerHTML=''; $('journalEntries').innerHTML='';
   showLogin();
-  $('loginErr').textContent = reason || '';
+  $('loginErr').textContent = reason||'';
 }
-document.addEventListener('visibilitychange', ()=>{ if (document.hidden) lockBoard('Locked — the app lost focus.'); });
-window.addEventListener('blur', ()=>lockBoard('Locked — the app lost focus.'));
-$('btnPanic').addEventListener('click', ()=>lockBoard('Locked manually.'));
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden && blurLockOn()) lockBoard('Locked — the app lost focus.'); });
+window.addEventListener('blur', ()=>{ if (blurLockOn()) lockBoard('Locked — the app lost focus.'); });
 
 /* ---------- demo authenticator ---------- */
 async function startDemoAuth(){
   $('demoAuth').classList.remove('hidden');
   const tick = async ()=>{
-    const name = $('liWho').value, m = board.members[name], pw = $('liPw').value;
-    if (!m || !pw){ $('demoCode').textContent='enter password first'; return; }
-    try{
-      const kPw = await pbkdf2Key(pw, b64.from(m.salt1));
-      const secret = dec.decode(await aesDec(kPw, m.totpBlob));
-      $('demoCode').textContent = await totp(secret);
-    }catch{ $('demoCode').textContent='wrong password'; }
+    const m = board.members[$('liWho').value], pw = $('liPw').value;
+    if (!m || !pw) return $('demoCode').textContent='enter password first';
+    try{ $('demoCode').textContent = await totp(dec.decode(await aesDec(await pbkdf2Key(pw, b64.from(m.salt1)), m.totpBlob))); }
+    catch{ $('demoCode').textContent='wrong password'; }
   };
-  tick();
-  demoInterval = setInterval(tick, 1000);
+  tick(); demoInterval = setInterval(tick, 1000);
 }
 function stopDemoAuth(){ clearInterval(demoInterval); $('demoAuth').classList.add('hidden'); }
 
-/* ---------- file export (backup path only) / import ---------- */
+/* ---------- files ---------- */
+function download(text, filename){
+  const url = URL.createObjectURL(new Blob([text],{type:'application/json'}));
+  const a = document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
 async function exportBoard(){
   bumpIdle();
-  const json = JSON.stringify(board,null,2);
-  const filename = 'cuffedupboard-'+new Date().toISOString().slice(0,10)+'.json';
+  const json = JSON.stringify(board,null,2), filename = 'cuffedupboard-'+new Date().toISOString().slice(0,10)+'.json';
   try{
     const file = new File([json], filename, {type:'application/json'});
     if (navigator.canShare && navigator.canShare({files:[file]})){
       suppressLock = true;
       await navigator.share({files:[file], title:'CuffedUpBoard'});
-      setTimeout(()=>{ suppressLock = false; }, 1500);
+      setTimeout(()=>{ suppressLock=false; }, 1500);
       return;
     }
-  }catch(e){
-    suppressLock = false;
-    if (e && e.name === 'AbortError') return;
-  }
-  try{
-    const blob = new Blob([json],{type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url), 4000);
-  }catch(e){}
+  }catch(e){ suppressLock=false; if (e && e.name==='AbortError') return; }
+  download(json, filename);
 }
-
 function importBoard(file){
-  const r=new FileReader();
-  r.onload=()=>{ try{
-      board = migrateBoard(JSON.parse(r.result));
-      saveLocal();
-      $('setup').classList.add('hidden'); showLogin();
-    }catch{ $('setupErr').textContent='Not a CuffedUpBoard file.'; } };
+  const r = new FileReader();
+  r.onload = ()=>{ try{ board = migrateBoard(JSON.parse(r.result)); saveLocal(); $('setup').classList.add('hidden'); showLogin(); }
+                   catch{ $('setupErr').textContent='Not a CuffedUpBoard file.'; } };
   r.readAsText(file);
 }
-
 async function setupFromPaste(){
   $('setupErr').textContent='';
   const text = $('setupPaste').value.trim();
-  if (!text){ $('setupErr').textContent='Paste a board or sync code first.'; return; }
-  try{
-    board = migrateBoard(await fromSyncCode(text));
-    saveLocal();
-    $('setupPaste').value='';
-    $('setup').classList.add('hidden');
-    showLogin();
-  }catch{ $('setupErr').textContent='That code could not be read.'; }
+  if (!text) return $('setupErr').textContent='Paste a board or sync code first.';
+  try{ board = migrateBoard(await fromSyncCode(text)); saveLocal(); $('setupPaste').value=''; showLogin(); }
+  catch{ $('setupErr').textContent='That code could not be read.'; }
 }
-
 function forgetDevice(){
-  if (!confirm('Remove the saved board from this device? Your friends\' copies and any exported backups are unaffected. Without a backup or a friend\'s sync code, this board is gone.')) return;
-  clearLocal();
-  location.reload();
+  if (!confirm("Remove the saved board from this device? Friends' copies, the relay, and any exported backup are unaffected — but without one of those, this board is gone.")) return;
+  clearLocal(); location.reload();
 }
-
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 /* ---------- wire ---------- */
-$('btnCreate').addEventListener('click', createBoard);
-$('btnEnroll').addEventListener('click', enroll);
-$('btnDone').addEventListener('click', goLogin);
-$('btnUnlock').addEventListener('click', unlock);
-$('liCode').addEventListener('keydown', e=>{ if(e.key==='Enter') unlock(); });
-$('btnPost').addEventListener('click', post);
-$('btnCancelReply').addEventListener('click', cancelReply);
-$('btnJournalSave').addEventListener('click', journalSave);
-$('btnJournalVerify').addEventListener('click', journalVerifyAll);
-$('btnCopySync').addEventListener('click', copySync);
-$('btnMerge').addEventListener('click', doMerge);
-$('btnExportBoard').addEventListener('click', exportBoard);
-$('btnForgetDevice').addEventListener('click', forgetDevice);
-$('btnForget').addEventListener('click', forgetDevice);
-$('btnSetupPaste').addEventListener('click', setupFromPaste);
-$('tabBoard').addEventListener('click', ()=>showTab('board'));
-$('tabJournal').addEventListener('click', ()=>showTab('journal'));
-$('tabSync').addEventListener('click', ()=>showTab('sync'));
-$('btnShowDemo').addEventListener('click', ()=> $('demoAuth').classList.contains('hidden') ? startDemoAuth() : stopDemoAuth());
-$('btnImportBoard').addEventListener('click', ()=>{
-  suppressLock = true;
-  setTimeout(()=>{ suppressLock = false; }, 60000);
-  $('fileBoard').click();
+const on = (id, fn, ev='click')=>$(id).addEventListener(ev, fn);
+on('btnCreate', createBoard); on('btnEnroll', enroll); on('btnDone', goLogin);
+on('btnUnlock', unlock); on('liCode', e=>{ if(e.key==='Enter') unlock(); }, 'keydown');
+on('btnPost', post); on('btnCancelReply', cancelReply);
+on('btnJournalSave', journalSave); on('btnJournalVerify', journalVerifyAll);
+on('btnBridgeExport', bridgeExport);
+on('btnBridgeImport', ()=>{ suppressLock=true; setTimeout(()=>{suppressLock=false;},60000); $('fileBundle').click(); });
+on('fileBundle', e=>{ suppressLock=false; if (e.target.files[0]) bridgeImport(e.target.files[0]); }, 'change');
+on('btnCopySync', copySync); on('btnMerge', doMerge);
+on('btnExportBoard', exportBoard); on('btnForgetDevice', forgetDevice); on('btnForget', forgetDevice);
+on('btnSetupPaste', setupFromPaste);
+on('tabBoard', ()=>showTab('board')); on('tabJournal', ()=>showTab('journal')); on('tabSync', ()=>showTab('sync'));
+on('btnShowDemo', ()=> $('demoAuth').classList.contains('hidden') ? startDemoAuth() : stopDemoAuth());
+on('btnImportBoard', ()=>{ suppressLock=true; setTimeout(()=>{suppressLock=false;},60000); $('fileBoard').click(); });
+on('fileBoard', e=>{ suppressLock=false; if (e.target.files[0]) importBoard(e.target.files[0]); }, 'change');
+on('btnRelaySave', ()=>{
+  const v = $('relayInput').value.trim().replace(/\/+$/,'');
+  localStorage.setItem(LS.relay, v);
+  $('relayOk').textContent = v ? 'Relay saved. Syncing every 12 seconds while unlocked.' : 'Relay turned off.';
+  setTimeout(()=>$('relayOk').textContent='', 6000);
+  startRelay();
 });
-$('fileBoard').addEventListener('change', e=>{
-  suppressLock = false;
-  if(e.target.files[0]) importBoard(e.target.files[0]);
-});
+on('btnRelayOff', ()=>{ localStorage.setItem(LS.relay,''); $('relayInput').value=''; startRelay();
+  $('relayOk').textContent='Relay turned off — back to manual sync codes.'; });
+on('retentionSel', e=>{
+  board.retentionDays = +e.target.value;
+  saveLocal();
+  const n = sweepRetention();
+  $('retentionOk').textContent = board.retentionDays
+    ? 'Retention set to '+board.retentionDays+' days.'+(n?' Swept '+n+' message(s) now.':' Nothing is old enough to sweep yet.')
+    : 'Retention off — the board is append-only again.';
+  renderMessages();
+}, 'change');
+on('blurLockChk', e=>localStorage.setItem(LS.blur, e.target.checked ? '1' : '0'), 'change');
 
-/* ---------- boot: resume the saved board if there is one ---------- */
+/* ---------- boot ---------- */
+/* Only adopt this origin as the relay if a relay actually answers here. On a
+   static host (GitHub Pages) nothing does, so sync stays manual instead of
+   polling a 404 forever. Runs once; after that the choice is the user's. */
+async function probeRelay(){
+  if (localStorage.getItem(LS.relay) !== null) return;      // '' means deliberately off
+  if (!location.protocol.startsWith('http')) return;
+  try{
+    const res = await fetch('./api/relay', {method:'GET'});
+    if (!res.ok) throw 0;
+    if ((await res.json()).relay !== true) throw 0;
+    localStorage.setItem(LS.relay, location.origin);
+    $('relayInput').value = location.origin;
+    if (session) startRelay();
+  }catch{ localStorage.setItem(LS.relay, ''); }
+}
+
 (function boot(){
-  const saved = loadLocal();
-  if (saved){
-    board = saved;
-    $('resumeNote').classList.remove('hidden');
-    showLogin();
-  }
+  try{ const s = localStorage.getItem(LS.board); if (s){ board = migrateBoard(JSON.parse(s)); $('resumeNote').classList.remove('hidden'); showLogin(); } }catch{}
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  probeRelay();
 })();
 </script>
 </body>
