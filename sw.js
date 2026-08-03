@@ -4,7 +4,7 @@
    so a stale reply can never resurrect a deleted message. No board data,
    key material, or ciphertext passes through here — that all lives in the
    page's localStorage. */
-const CACHE = 'cuffedup-v6';
+const CACHE = 'cuffedup-v7';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', e=>{
@@ -22,6 +22,23 @@ self.addEventListener('activate', e=>{
 self.addEventListener('fetch', e=>{
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.pathname.includes('/api/')) return;   // relay = network only
+
+  const isPage = e.request.mode === 'navigate' || e.request.destination === 'document';
+
+  if (isPage){
+    // NETWORK-FIRST for the app itself. Cache-first here would pin everyone to
+    // whatever version they installed: a pushed update would never arrive.
+    // Offline still works — we fall back to the cached copy.
+    e.respondWith(
+      fetch(e.request).then(res=>{
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c=>c.put('./index.html', copy)); }
+        return res;
+      }).catch(()=>caches.match('./index.html').then(hit=>hit||caches.match('./')))
+    );
+    return;
+  }
+
+  // Static assets: cache-first is fine, they change with the cache version.
   e.respondWith(
     caches.match(e.request).then(hit =>
       hit || fetch(e.request).then(res=>{
@@ -30,7 +47,7 @@ self.addEventListener('fetch', e=>{
           caches.open(CACHE).then(c=>c.put(e.request, copy));
         }
         return res;
-      }).catch(()=>caches.match('./index.html'))
+      })
     )
   );
 });

@@ -103,6 +103,10 @@
   .replybar{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--coral-soft);margin-top:10px}
   .replybar button{background:none;border:none;color:var(--ink-dim);cursor:pointer;text-decoration:underline;font-size:.75rem;padding:6px}
   .synctext{font-family:var(--mono);font-size:.7rem;min-height:96px}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom));
+    background:var(--bg-card);border:1px solid var(--teal);color:var(--teal-soft);border-radius:12px;
+    padding:12px 18px;font-size:.85rem;z-index:50;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(92vw,420px)}
+  .toast.warn-toast{border-color:var(--coral);color:var(--coral-soft)}
 
   @media (max-width:520px){
     :root{--pad:16px}
@@ -256,18 +260,29 @@
       <p class="ok" id="relayOk"></p>
       <p class="note">The relay stores <strong>ciphertext only</strong> — it has no key and can never read a message or journal entry. It does see metadata: board id, member names, timestamps, sizes. Run <span class="mono">python cuffedup_server.py</span> on any computer and point every phone at that address.</p>
 
-      <h3>Sync codes (manual)</h3>
+      <h3>Share updates (manual)</h3>
+      <p class="note" id="updateSummary">Nothing new to share yet.</p>
       <div class="row">
-        <button class="btn btn-teal" id="btnCopySync" type="button">📋 Copy sync code</button>
+        <button class="btn btn-teal" id="btnShareUpdate" type="button">🔗 Share update</button>
+        <button class="btn btn-ghost btn-mini" id="btnCopyUpdate" type="button">📋 Copy link</button>
         <span class="ok" id="syncCopyOk"></span>
       </div>
-      <label for="syncPaste">Paste a friend's code to merge</label>
-      <textarea id="syncPaste" class="synctext" placeholder="CUB6:..."></textarea>
+      <p class="note">An update link carries only what's new since you last shared — a few hundred characters instead of the whole board. Your friend taps it and the messages merge on their side automatically. Everything after the <span class="mono">#</span> stays in the browser and is never sent to any server.</p>
+
+      <label for="syncPaste">Paste a friend's link or code to merge</label>
+      <textarea id="syncPaste" class="synctext" placeholder="https://…#u=…  or  CUB6:…"></textarea>
       <div class="row">
         <button class="btn btn-ghost" id="btnMerge" type="button">Merge into my board</button>
         <span class="ok" id="mergeOk"></span>
       </div>
       <p class="err" id="syncErr"></p>
+
+      <h3>Full board code</h3>
+      <p class="note">For <strong>onboarding a new member</strong> or repairing a copy that's out of sync. Carries everything including member records, so it's large — paste it as text rather than a link, and the person receiving it gets asked to confirm before anyone is added to their board.</p>
+      <div class="row">
+        <button class="btn btn-ghost" id="btnCopySync" type="button">📋 Copy full board code</button>
+        <span class="ok" id="fullCopyOk"></span>
+      </div>
 
       <h3>Retention</h3>
       <label for="retentionSel">Delete quiet threads after</label>
@@ -539,7 +554,7 @@ function enterBoard(){
   $('retentionSel').value = String(board.retentionDays||0);
   $('blurLockChk').checked = blurLockOn();
   const swept = sweepRetention();
-  showTab('board'); renderAll(); armIdle(); startRelay();
+  showTab('board'); renderAll(); armIdle(); startRelay(); refreshUpdateSummary();
   if (swept) $('retentionOk').textContent = swept+' message(s) past the retention window were deleted.';
 }
 
@@ -556,7 +571,7 @@ async function post(){
   msg.sig = b64.to(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'}, session.signKey, enc.encode(canonicalMsg(msg))));
   board.messages.push(msg);
   $('draft').value=''; $('draftTopic').value=''; cancelReply();
-  saveLocal(); renderMessages(); bumpIdle(); relaySync();
+  saveLocal(); renderMessages(); bumpIdle(); relaySync(); refreshUpdateSummary();
 }
 
 function canonicalMsg(m){
@@ -722,7 +737,7 @@ async function journalSave(){
   e.plaintext_sha256 = await sha256hex(text);
   mine.push(e);
   $('journalDraft').value='';
-  saveLocal(); renderJournal(); relaySync();
+  saveLocal(); renderJournal(); relaySync(); refreshUpdateSummary();
   $('journalOk').textContent = 'Entry #'+e.seq+' saved — '+text.length+' chars, AES-256-GCM, metadata bound as AAD.';
   setTimeout(()=>$('journalOk').textContent='', 5000);
   bumpIdle();
@@ -924,26 +939,204 @@ function mergeBoards(base, inc){
   return stats;
 }
 
-async function copySync(){
+/* ---------- update links vs full board codes ----------
+   An update carries only what's new since this device last shared, and never
+   carries member records — so it stays a few hundred characters and cannot add
+   anyone to a board. A full board code carries everything, including member
+   records, and is therefore confirmed on arrival. Both are pure ciphertext. */
+/* We track WHICH ids we've already shared, not a timestamp. A timestamp
+   watermark silently drops anything posted in the same millisecond as a share,
+   and — worse — never forwards a message received from one friend on to
+   another, because its timestamp is older than the watermark. Ids are exact. */
+const sharedKey = ()=>'cub6.shared.'+board.boardId;
+function sharedIds(){
+  try{ return new Set(JSON.parse(localStorage.getItem(sharedKey())||'[]')); }catch{ return new Set(); }
+}
+function markShared(ids){
+  const s = sharedIds();
+  for (const id of ids) s.add(id);
+  try{ localStorage.setItem(sharedKey(), JSON.stringify([...s].slice(-4000))); }catch{}
+  refreshUpdateSummary();
+}
+function allIds(){
+  const ids = board.messages.map(m=>m.id);
+  for (const es of Object.values(board.journals||{})) for (const e of es) ids.push(e.id);
+  for (const t of (board.tombs||[])) ids.push(t.id);
+  return ids;
+}
+
+/* Fingerprint of every message id we hold, so a recipient can spot a hole. */
+async function msgDigest(b){
+  return (await sha256hex(b.messages.map(m=>m.id).sort().join(','))).slice(0,8);
+}
+
+async function buildUpdate(){
+  const seen = sharedIds();
+  const fresh = board.messages.filter(m=>!seen.has(m.id));
+  const journals = {};
+  for (const [owner, entries] of Object.entries(board.journals||{})){
+    const nw = entries.filter(e=>!seen.has(e.id));
+    if (nw.length) journals[owner] = nw;
+  }
+  const tombs = (board.tombs||[]).filter(t=>!seen.has(t.id));
+  const entryList = Object.values(journals).flat();
+  return { payload:{ t:'u', b:board.boardId, n:board.messages.length, d:await msgDigest(board),
+                     m:fresh, j:journals, x:tombs },
+           counts:{ messages:fresh.length, entries:entryList.length, tombs:tombs.length },
+           ids:[...fresh.map(m=>m.id), ...entryList.map(e=>e.id), ...tombs.map(t=>t.id)] };
+}
+
+function updateSummaryText(c){
+  const bits = [];
+  if (c.messages) bits.push(c.messages+' message'+(c.messages>1?'s':''));
+  if (c.entries)  bits.push(c.entries+' journal entr'+(c.entries>1?'ies':'y'));
+  if (c.tombs)    bits.push(c.tombs+' deletion'+(c.tombs>1?'s':''));
+  return bits.length ? bits.join(', ')+' since you last shared.' : 'Nothing new to share yet.';
+}
+
+async function refreshUpdateSummary(){
+  if (!board || !$('updateSummary')) return;
+  const {counts} = await buildUpdate();
+  const nothing = !(counts.messages||counts.entries||counts.tombs);
+  $('updateSummary').textContent = updateSummaryText(counts);
+  $('btnShareUpdate').disabled = nothing;
+  $('btnCopyUpdate').disabled = nothing;
+}
+
+
+async function shareUpdate(useShareSheet){
+  bumpIdle();
+  const {payload, counts, ids} = await buildUpdate();
+  if (!(counts.messages||counts.entries||counts.tombs)){
+    $('syncCopyOk').textContent = 'Nothing new since your last share.';
+    return setTimeout(()=>$('syncCopyOk').textContent='', 5000);
+  }
+  const code = await toSyncCode(JSON.stringify(payload));
+  const url = location.origin + location.pathname + '#u=' + encodeURIComponent(code);
+  const note = updateSummaryText(counts).replace(' since you last shared.','') + ' · ' + code.length + ' chars';
+  suppressLock = true; setTimeout(()=>{ suppressLock=false; }, 30000);   // switching to a chat app
+  if (useShareSheet && navigator.share){
+    try{ await navigator.share({title:'CuffedUpBoard', text:'Board update', url});
+         markShared(ids); $('syncCopyOk').textContent = 'Shared — '+note; }
+    catch(e){ suppressLock=false; if (e && e.name==='AbortError') return; }
+  } else {
+    try{ await navigator.clipboard.writeText(url);
+         markShared(ids); $('syncCopyOk').textContent = 'Link copied — '+note; }
+    catch{ $('syncPaste').value = url; $('syncCopyOk').textContent = 'Clipboard blocked — link is in the box below.'; }
+  }
+  setTimeout(()=>$('syncCopyOk').textContent='', 9000);
+}
+
+async function copySync(){            // full board — onboarding a member, or repair
   bumpIdle();
   const code = await toSyncCode(JSON.stringify(board));
-  suppressLock = true; setTimeout(()=>{ suppressLock=false; }, 30000);   // you're about to switch to a chat app
-  try{ await navigator.clipboard.writeText(code);
-       $('syncCopyOk').textContent = 'Copied ('+Math.round(code.length/102.4)/10+' KB) — paste it in your group chat.'; }
-  catch{ $('syncPaste').value = code; $('syncCopyOk').textContent = 'Clipboard blocked — code is in the box below.'; }
-  setTimeout(()=>$('syncCopyOk').textContent='', 8000);
+  suppressLock = true; setTimeout(()=>{ suppressLock=false; }, 30000);
+  try{ await navigator.clipboard.writeText(code); markShared(allIds());
+       $('fullCopyOk').textContent = 'Copied ('+Math.round(code.length/102.4)/10+' KB) — send as text, not a link.'; }
+  catch{ $('syncPaste').value = code; $('fullCopyOk').textContent = 'Clipboard blocked — code is in the box below.'; }
+  setTimeout(()=>$('fullCopyOk').textContent='', 9000);
+}
+
+function toast(msg, warn){
+  const el = document.createElement('div');
+  el.className = 'toast'+(warn?' warn-toast':'');
+  el.setAttribute('role','status');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 7000);
+}
+
+/* Apply an update payload: messages/journals/tombs only, never members. */
+async function applyUpdate(u){
+  const stats = mergeBoards(board, {members:{}, messages:u.m||[], journals:u.j||{}, tombs:u.x||[]});
+  saveLocal();
+  let gap = '';
+  if (typeof u.n === 'number' && board.messages.length < u.n)
+    gap = ' You are missing '+(u.n-board.messages.length)+' earlier message(s) — ask for a full board code.';
+  else if (u.d && await msgDigest(board) !== u.d && board.messages.length === u.n)
+    gap = ' Your copy differs from theirs — a full board code will resolve it.';
+  return {stats, gap};
+}
+
+/* Accept a bare code, or a full update link with the code in its fragment. */
+function extractCode(text){
+  text = String(text).trim();
+  const i = text.indexOf('#u=');
+  return i >= 0 ? decodeURIComponent(text.slice(i+3).trim()) : text;
+}
+
+async function ingest(text){
+  const parsed = await fromSyncCode(extractCode(text));
+  if (parsed && parsed.t === 'u'){                       // delta — no member records inside
+    if (!board) throw new Error('no-board');
+    if (parsed.b !== board.boardId) throw new Error('other-board');
+    return {kind:'update', ...(await applyUpdate(parsed))};
+  }
+  const inc = migrateBoard(parsed);                      // full board
+  return {kind:'full', inc,
+          newMembers: Object.keys(inc.members).filter(n=>!board || !board.members[n])};
+}
+
+/* Full codes carry member records — who may unlock the board — so they are
+   always confirmed, naming anyone new. Updates never reach this path. */
+function confirmFull(r){
+  const who = r.newMembers.length
+    ? 'It adds '+r.newMembers.length+' member(s): '+r.newMembers.join(', ')+'.\n\nMembers define who can unlock this board. Only accept a full board code from someone you trust.'
+    : 'It adds no new members — messages and journal entries only.';
+  return confirm('Merge a full board code?\n\n'+who);
+}
+
+function mergeSummary(s){
+  return `Merged: +${s.messages} messages, +${s.members} members, +${s.entries} journal entries, +${s.tombs} deletions.`;
 }
 
 async function doMerge(){
   $('syncErr').textContent=''; $('mergeOk').textContent='';
   const text = $('syncPaste').value.trim();
-  if (!text) return $('syncErr').textContent='Paste a sync code first.';
+  if (!text) return $('syncErr').textContent='Paste a link or code first.';
   try{
-    const s = mergeBoards(board, migrateBoard(await fromSyncCode(text)));
-    saveLocal(); $('syncPaste').value=''; renderAll(); relaySync();
-    $('mergeOk').textContent = `Merged: +${s.messages} messages, +${s.members} members, +${s.entries} journal entries, +${s.tombs} deletions.`;
-  }catch{ $('syncErr').textContent='That code could not be read — not a CuffedUpBoard sync code or board JSON.'; }
+    const r = await ingest(text);
+    if (r.kind === 'update'){
+      $('syncPaste').value='';
+      if (session) renderAll();
+      relaySync();
+      $('mergeOk').textContent = mergeSummary(r.stats)+r.gap;
+    } else {
+      if (!confirmFull(r)) return;
+      const s = mergeBoards(board, r.inc);
+      saveLocal(); $('syncPaste').value='';
+      if (session) renderAll();
+      relaySync();
+      $('mergeOk').textContent = mergeSummary(s);
+    }
+    refreshUpdateSummary();
+  }catch(e){
+    const why = {'no-board':'You need a full board code before updates can be applied.',
+                 'other-board':'That update belongs to a different board.'}[e && e.message];
+    $('syncErr').textContent = why || 'That could not be read — not a CuffedUpBoard link or code.';
+  }
   bumpIdle();
+}
+
+/* An update link opened directly: merge silently, strip the fragment so a
+   refresh cannot replay it and the address bar carries no ciphertext. */
+async function consumeHash(){
+  const h = location.hash || '';
+  if (!h.startsWith('#u=')) return;
+  const code = decodeURIComponent(h.slice(3));   // location.hash is still percent-encoded
+  history.replaceState(null, '', location.pathname + location.search);
+  try{
+    const r = await ingest(code);
+    if (r.kind !== 'update') return;                   // links only ever carry updates
+    const n = r.stats.messages + r.stats.entries + r.stats.tombs;
+    if (session) renderAll();
+    refreshUpdateSummary();
+    toast(n ? 'Merged '+r.stats.messages+' new message(s).'+r.gap : 'Already up to date.', !!r.gap);
+  }catch(e){
+    toast(e && e.message === 'no-board'
+      ? 'You need a full board code from the group before updates will apply.'
+      : 'That update link could not be read.', true);
+  }
 }
 
 /* ---------- session lock ---------- */
@@ -1037,6 +1230,7 @@ on('btnBridgeExport', bridgeExport);
 on('btnBridgeImport', ()=>{ suppressLock=true; setTimeout(()=>{suppressLock=false;},60000); $('fileBundle').click(); });
 on('fileBundle', e=>{ suppressLock=false; if (e.target.files[0]) bridgeImport(e.target.files[0]); }, 'change');
 on('btnCopySync', copySync); on('btnMerge', doMerge);
+on('btnShareUpdate', ()=>shareUpdate(true)); on('btnCopyUpdate', ()=>shareUpdate(false));
 on('btnExportBoard', exportBoard); on('btnForgetDevice', forgetDevice); on('btnForget', forgetDevice);
 on('btnSetupPaste', setupFromPaste);
 on('tabBoard', ()=>showTab('board')); on('tabJournal', ()=>showTab('journal')); on('tabSync', ()=>showTab('sync'));
@@ -1085,7 +1279,11 @@ async function probeRelay(){
   if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   probeRelay();
+  consumeHash();
+  refreshUpdateSummary();
 })();
+/* A link tapped while the app is already open (PWA already running). */
+window.addEventListener('hashchange', consumeHash);
 </script>
 </body>
 </html>

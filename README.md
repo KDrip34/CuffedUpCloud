@@ -53,9 +53,9 @@ Journal entries additionally bind their own metadata into the GCM tag as
 
 ### Availability
 
-The board auto-saves to your device, exports as a file, travels as a
-paste-anywhere **sync code**, and can sync automatically through an optional
-relay. Four independent copies, no single point of failure.
+The board auto-saves to your device, exports as a file, travels as a tappable
+**update link**, and can sync automatically through an optional relay. Four
+independent copies, no single point of failure.
 
 ### Hostile session
 
@@ -68,9 +68,23 @@ after 90 seconds idle, and five failed unlocks freeze it for a minute.
 
 Open the live link, create a board, and enroll each friend with a password. Each
 one gets a TOTP secret to add to Authy or Google Authenticator — that's the
-second factor. Then send them the link and a **sync code** (Sync tab → Copy sync
-code) pasted into your group chat. Sync codes are pure ciphertext, so the chat
-you send them through doesn't have to be private.
+second factor.
+
+Sharing then works in two steps:
+
+**Once per person — a full board code.** Sync tab → *Copy full board code*. This
+carries the member records, so their app asks them to confirm, naming exactly
+who is being added, before anything joins their board.
+
+**Every day after that — an update link.** Sync tab → *Share update*. It carries
+only what's new since you last shared, which keeps it to a few hundred
+characters instead of the whole board. Your friend taps it and the messages
+merge on their side automatically. Everything after the `#` in that link stays
+inside the browser and is never sent to any server, so it's exactly as private
+as the ciphertext it contains.
+
+Update links relay onward, too: if Marcus sends you a message and you then share
+an update with Jaylen, Marcus's message travels along with yours.
 
 On a phone, use **Add to Home Screen** / **Install app** and it runs full screen
 like a native app, offline included.
