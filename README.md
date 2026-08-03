@@ -72,9 +72,19 @@ second factor.
 
 Sharing then works in two steps:
 
-**Once per person — a full board code.** Sync tab → *Copy full board code*. This
-carries the member records, so their app asks them to confirm, naming exactly
-who is being added, before anything joins their board.
+**Once per person — an invite link.** Right after you enrol them, hit *Copy
+invite link for this member* (or pick them later in Sync → Invite a member).
+It carries their own key envelope, everyone's public keys so signatures verify,
+and recent history — but nobody else's key envelope. They tap it and land on the
+unlock screen with their name already selected.
+
+Send their **password** and **TOTP secret** by some other route — say them out
+loud, or use a different app. The invite link alone unlocks nothing, and keeping
+the factors on separate channels is the entire point of having two.
+
+*(A full board code also exists, under Sync → Full board code. It carries every
+member record, so it's for repairing a copy that has drifted out of sync rather
+than for onboarding.)*
 
 **Every day after that — an update link.** Sync tab → *Share update*. It carries
 only what's new since you last shared, which keeps it to a few hundred
@@ -85,6 +95,10 @@ as the ciphertext it contains.
 
 Update links relay onward, too: if Marcus sends you a message and you then share
 an update with Jaylen, Marcus's message travels along with yours.
+
+An update link **cannot** be used to join a board — it carries messages, not
+keys. If someone new pastes one, the app now says so and tells them to ask for
+an invite link instead.
 
 On a phone, use **Add to Home Screen** / **Install app** and it runs full screen
 like a native app, offline included.

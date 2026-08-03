@@ -148,9 +148,10 @@
       <button class="btn btn-ghost" id="btnImportBoard" type="button">Import board file</button>
       <input type="file" id="fileBoard" accept=".json" class="hidden">
     </div>
-    <label for="setupPaste">…or paste a board / sync code a friend sent you</label>
-    <textarea id="setupPaste" class="synctext" placeholder="CUB6:..."></textarea>
-    <div class="row"><button class="btn btn-teal" id="btnSetupPaste" type="button">Load from pasted code</button></div>
+    <label for="setupPaste">Joining a board? Paste the <strong>invite link</strong> or full board code you were sent</label>
+    <textarea id="setupPaste" class="synctext" placeholder="https://…#i=…   or   CUB6:…"></textarea>
+    <div class="row"><button class="btn btn-teal" id="btnSetupPaste" type="button">Join this board</button></div>
+    <p class="note">An <strong>update link</strong> won't work here — updates only carry new messages, not the keys you need to get in. Ask for an invite link.</p>
     <p class="err" id="setupErr"></p>
   </section>
 
@@ -171,6 +172,12 @@
       <p class="note">Their TOTP secret (add to Authy / Google Authenticator via the URI below). <span class="warn">Shown once — this is the "something you have."</span></p>
       <div class="secretbox" id="totpSecret"></div>
       <div class="secretbox" id="totpUri" style="color:var(--purple-soft)"></div>
+      <div class="row">
+        <button class="btn btn-teal" id="btnInviteHere" type="button">🔗 Copy invite link for this member</button>
+      </div>
+      <p class="ok" id="inviteHereOk"></p>
+      <div class="secretbox hidden" id="inviteHereBox"></div>
+      <p class="note">Send the invite link however you like — it is ciphertext. Send the <strong>password</strong> and the <strong>TOTP secret above</strong> by some other route (say them out loud, or use a different app). Splitting them is the whole point of two factors: the link alone unlocks nothing.</p>
     </div>
     <p class="err" id="enrollErr"></p>
   </section>
@@ -251,8 +258,9 @@
       <p class="note">Your board <strong>auto-saves to this device</strong>. Add a relay below for automatic sync, or paste sync codes by hand — both carry only ciphertext.</p>
 
       <h3>Relay (automatic)</h3>
-      <label for="relayInput">Relay URL <span style="color:var(--ink-dim)">(blank = off)</span></label>
-      <input id="relayInput" placeholder="http://192.168.1.20:8765" inputmode="url" autocomplete="off">
+      <label for="relayInput">Relay URL <span style="color:var(--ink-dim)">(blank = off, which is fine)</span></label>
+      <input id="relayInput" placeholder="https://your-relay.example.com" inputmode="url" autocomplete="off">
+      <p class="note warn">If this page is on <span class="mono">https://</span>, the relay must be <span class="mono">https://</span> too — browsers block a secure page from calling a plain <span class="mono">http://</span> address, so a <span class="mono">http://192.168…</span> relay will always show "no relay". Running the app from <span class="mono">http://localhost:8765</span> is the exception, and there the app fills this in for you.</p>
       <div class="row">
         <button class="btn btn-purple" id="btnRelaySave" type="button">Save &amp; sync now</button>
         <button class="btn btn-ghost btn-mini" id="btnRelayOff" type="button">Turn off</button>
@@ -276,6 +284,16 @@
         <span class="ok" id="mergeOk"></span>
       </div>
       <p class="err" id="syncErr"></p>
+
+      <h3>Invite a member</h3>
+      <p class="note">The right thing to send someone joining for the first time. It carries their own key envelope, everyone's public keys for signature checking, and recent history — far smaller than a full board code, and it drops them straight at the unlock screen with their name already chosen.</p>
+      <label for="inviteWho">Who are you inviting?</label>
+      <select id="inviteWho"></select>
+      <div class="row">
+        <button class="btn btn-teal" id="btnInvite" type="button">🔗 Copy invite link</button>
+        <span class="ok" id="inviteOk"></span>
+      </div>
+      <div class="secretbox hidden" id="inviteBox"></div>
 
       <h3>Full board code</h3>
       <p class="note">For <strong>onboarding a new member</strong> or repairing a copy that's out of sync. Carries everything including member records, so it's large — paste it as text rather than a link, and the person receiving it gets asked to confirm before anyone is added to their board.</p>
@@ -414,7 +432,7 @@ async function fromSyncCode(text){
 /* ---------- state ---------- */
 let board=null, session=null, failCount=0, coolUntil=0, suppressLock=false;
 let idleDeadline=0, idleInterval=null, demoInterval=null, relayInterval=null;
-let replyTo=null, showArchived=false, sessionLastSeen=0, relayBusy=false;
+let replyTo=null, showArchived=false, sessionLastSeen=0, relayBusy=false, lastEnrolled=null;
 const revealed = new Map();
 
 const LS = {board:'cuffedupboard.v6', relay:'cub6.relay', blur:'cub6.blurlock'};
@@ -471,6 +489,8 @@ async function enroll(){
     pubJwk: await crypto.subtle.exportKey('jwk', pair.publicKey) };
 
   $('enName').value=''; $('enPw').value='';
+  lastEnrolled = name;
+  $('inviteHereOk').textContent=''; $('inviteHereBox').classList.add('hidden');
   $('secretReveal').classList.remove('hidden');
   $('enrollOk').textContent = name + ' enrolled. Group key + private journal key wrapped to their personal key.';
   $('totpSecret').textContent = totpSecret;
@@ -495,7 +515,8 @@ function goLogin(){
 function showLogin(){
   $('login').classList.remove('hidden'); $('setup').classList.add('hidden');
   $('unlocked').classList.add('hidden'); $('sessionBar').classList.add('hidden');
-  $('liWho').innerHTML = Object.keys(board.members).map(n=>'<option>'+escapeHtml(n)+'</option>').join('');
+  $('liWho').innerHTML = Object.entries(board.members).filter(([,mm])=>mm.wrapBlob)
+    .map(([n])=>'<option>'+escapeHtml(n)+'</option>').join('');
   $('liPw').value=''; $('liCode').value=''; $('loginErr').textContent='';
   stopDemoAuth();
 }
@@ -554,6 +575,8 @@ function enterBoard(){
   $('retentionSel').value = String(board.retentionDays||0);
   $('blurLockChk').checked = blurLockOn();
   const swept = sweepRetention();
+  $('inviteWho').innerHTML = Object.entries(board.members).filter(([,mm])=>mm.wrapBlob)
+    .map(([n])=>'<option>'+escapeHtml(n)+'</option>').join('');
   showTab('board'); renderAll(); armIdle(); startRelay(); refreshUpdateSummary();
   if (swept) $('retentionOk').textContent = swept+' message(s) past the retention window were deleted.';
 }
@@ -918,7 +941,10 @@ function startRelay(){
 /* ---------- merge ---------- */
 function mergeBoards(base, inc){
   const stats = {members:0, messages:0, entries:0, tombs:0};
-  for (const [n,m] of Object.entries(inc.members||{})) if (!base.members[n]){ base.members[n]=m; stats.members++; }
+  for (const [n,m] of Object.entries(inc.members||{})){
+    const cur = base.members[n];
+    if (!cur || (!cur.wrapBlob && m.wrapBlob)){ base.members[n]=m; stats.members++; }   // add, or upgrade a stub
+  }
   const ids = new Set(base.messages.map(m=>m.id));
   for (const m of (inc.messages||[])){
     if (!m.id) continue;
@@ -1061,8 +1087,59 @@ async function applyUpdate(u){
 /* Accept a bare code, or a full update link with the code in its fragment. */
 function extractCode(text){
   text = String(text).trim();
-  const i = text.indexOf('#u=');
-  return i >= 0 ? decodeURIComponent(text.slice(i+3).trim()) : text;
+  const m = text.match(/#[ui]=([^\s]+)/);        // works on a bare code or a full pasted link
+  return m ? decodeURIComponent(m[1]) : text;
+}
+
+/* ---------- invites ----------
+   What a newcomer actually needs to get in: their own wrapped key envelope,
+   everyone's public keys so signatures verify, and some history. Not the whole
+   board — and never anyone else's key envelope. */
+async function buildInvite(name){
+  const pk = {};
+  for (const [n, mm] of Object.entries(board.members)) if (mm.pubJwk) pk[n] = mm.pubJwk;
+  return { t:'i', b:board.boardId, who:name, mem:board.members[name], pk,
+           m:board.messages.slice(-40), x:(board.tombs||[]).slice(-80) };
+}
+
+/* Members carrying only a public key are verify-only stubs: their signatures
+   can be checked, but nobody can sign in as them from this copy. */
+function inviteToBoard(inv){
+  const members = {};
+  for (const [n, pub] of Object.entries(inv.pk||{})) if (pub) members[n] = {pubJwk:pub};
+  if (inv.mem) members[inv.who] = inv.mem;
+  return migrateBoard({version:6, boardId:inv.b, members,
+                       messages:inv.m||[], journals:{}, tombs:inv.x||[]});
+}
+
+async function acceptInvite(inv){
+  const incoming = inviteToBoard(inv);
+  if (!board){
+    board = incoming; saveLocal();
+    showLogin();
+    const sel = $('liWho');
+    if ([...sel.options].some(o=>o.value === inv.who)) sel.value = inv.who;
+    toast('You have been invited as ' + inv.who + ' — enter the password and 6-digit code you were given.');
+    return {ok:true, bootstrapped:true};
+  }
+  if (board.boardId !== inv.b) return {ok:false, why:'That invite is for a different board.'};
+  if (!confirm('Accept this invite?\n\nIt adds member records to your existing copy of this board.'))
+    return {ok:false, why:'Invite declined.'};
+  mergeBoards(board, incoming); saveLocal();
+  if (session) renderAll();
+  return {ok:true, bootstrapped:false};
+}
+
+async function copyInvite(name, okId, boxId){
+  if (!board || !board.members[name]) return;
+  const code = await toSyncCode(JSON.stringify(await buildInvite(name)));
+  const url = location.origin + location.pathname + '#i=' + encodeURIComponent(code);
+  suppressLock = true; setTimeout(()=>{ suppressLock=false; }, 30000);
+  const note = 'Invite link for ' + name + ' copied (' + url.length + ' chars). Send their password and TOTP secret separately.';
+  try{ await navigator.clipboard.writeText(url); $(okId).textContent = note; $(boxId).classList.add('hidden'); }
+  catch{ $(boxId).textContent = url; $(boxId).classList.remove('hidden');
+         $(okId).textContent = 'Clipboard blocked — copy the link below.'; }
+  setTimeout(()=>$(okId).textContent='', 12000);
 }
 
 async function ingest(text){
@@ -1072,9 +1149,11 @@ async function ingest(text){
     if (parsed.b !== board.boardId) throw new Error('other-board');
     return {kind:'update', ...(await applyUpdate(parsed))};
   }
+  if (parsed && parsed.t === 'i') return {kind:'invite', inv:parsed};
   const inc = migrateBoard(parsed);                      // full board
   return {kind:'full', inc,
-          newMembers: Object.keys(inc.members).filter(n=>!board || !board.members[n])};
+          newMembers: Object.keys(inc.members).filter(n =>
+            !board || !board.members[n] || (!board.members[n].wrapBlob && inc.members[n].wrapBlob))};
 }
 
 /* Full codes carry member records — who may unlock the board — so they are
@@ -1101,6 +1180,11 @@ async function doMerge(){
       if (session) renderAll();
       relaySync();
       $('mergeOk').textContent = mergeSummary(r.stats)+r.gap;
+    } else if (r.kind === 'invite'){
+      const res = await acceptInvite(r.inv);
+      $('syncPaste').value='';
+      if (!res.ok) return $('syncErr').textContent = res.why;
+      $('mergeOk').textContent = 'Invite accepted.';
     } else {
       if (!confirmFull(r)) return;
       const s = mergeBoards(board, r.inc);
@@ -1122,12 +1206,19 @@ async function doMerge(){
    refresh cannot replay it and the address bar carries no ciphertext. */
 async function consumeHash(){
   const h = location.hash || '';
-  if (!h.startsWith('#u=')) return;
+  if (!h.startsWith('#u=') && !h.startsWith('#i=')) return;
   const code = decodeURIComponent(h.slice(3));   // location.hash is still percent-encoded
   history.replaceState(null, '', location.pathname + location.search);
   try{
     const r = await ingest(code);
-    if (r.kind !== 'update') return;                   // links only ever carry updates
+    if (r.kind === 'invite'){
+      const res = await acceptInvite(r.inv);
+      if (!res.ok) toast(res.why, true);
+      else if (!res.bootstrapped) toast('Invite accepted.');
+      refreshUpdateSummary();
+      return;
+    }
+    if (r.kind !== 'update') return;
     const n = r.stats.messages + r.stats.entries + r.stats.tombs;
     if (session) renderAll();
     refreshUpdateSummary();
@@ -1211,9 +1302,25 @@ function importBoard(file){
 async function setupFromPaste(){
   $('setupErr').textContent='';
   const text = $('setupPaste').value.trim();
-  if (!text) return $('setupErr').textContent='Paste a board or sync code first.';
-  try{ board = migrateBoard(await fromSyncCode(text)); saveLocal(); $('setupPaste').value=''; showLogin(); }
-  catch{ $('setupErr').textContent='That code could not be read.'; }
+  if (!text) return $('setupErr').textContent='Paste an invite link or full board code first.';
+  let parsed;
+  try{ parsed = await fromSyncCode(extractCode(text)); }
+  catch{
+    return $('setupErr').textContent = /^https?:|#[ui]=/.test(text)
+      ? 'That link looks incomplete — it may have been cut short. Ask for it again.'
+      : 'That could not be read. Make sure the whole code was copied, starting with CUB6:';
+  }
+  if (parsed && parsed.t === 'u')
+    return $('setupErr').textContent = 'That is an update link — it only carries new messages, not the keys you need to join. Ask for an invite link instead.';
+  try{
+    if (parsed && parsed.t === 'i'){
+      const r = await acceptInvite(parsed);
+      if (!r.ok) return $('setupErr').textContent = r.why;
+    } else {
+      board = migrateBoard(parsed); saveLocal(); showLogin();
+    }
+    $('setupPaste').value='';
+  }catch{ $('setupErr').textContent='That board could not be loaded.'; }
 }
 function forgetDevice(){
   if (!confirm("Remove the saved board from this device? Friends' copies, the relay, and any exported backup are unaffected — but without one of those, this board is gone.")) return;
@@ -1231,6 +1338,8 @@ on('btnBridgeImport', ()=>{ suppressLock=true; setTimeout(()=>{suppressLock=fals
 on('fileBundle', e=>{ suppressLock=false; if (e.target.files[0]) bridgeImport(e.target.files[0]); }, 'change');
 on('btnCopySync', copySync); on('btnMerge', doMerge);
 on('btnShareUpdate', ()=>shareUpdate(true)); on('btnCopyUpdate', ()=>shareUpdate(false));
+on('btnInvite', ()=>copyInvite($('inviteWho').value, 'inviteOk', 'inviteBox'));
+on('btnInviteHere', ()=>copyInvite(lastEnrolled, 'inviteHereOk', 'inviteHereBox'));
 on('btnExportBoard', exportBoard); on('btnForgetDevice', forgetDevice); on('btnForget', forgetDevice);
 on('btnSetupPaste', setupFromPaste);
 on('tabBoard', ()=>showTab('board')); on('tabJournal', ()=>showTab('journal')); on('tabSync', ()=>showTab('sync'));
