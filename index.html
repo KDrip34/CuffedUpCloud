@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="icon" href="icon.svg">
-<title>CuffedUpCloud — Encrypted Friend Board V6.2</title>
+<title>CuffedUpCloud — Encrypted Friend Board V6.3</title>
 <style>
   :root{
     --bg:#12101F; --bg-raise:#1B1830; --bg-card:#211D3A;
@@ -149,7 +149,7 @@
       <input type="file" id="fileBoard" accept=".json" class="hidden">
     </div>
     <label for="setupPaste">Joining a board? Paste the <strong>invite link</strong> or full board code you were sent</label>
-    <textarea id="setupPaste" class="synctext" placeholder="https://…#i=…   or   CUB6:…"></textarea>
+    <textarea id="setupPaste" class="synctext" placeholder="https://…#i=…   or   CUB7:…"></textarea>
     <div class="row"><button class="btn btn-teal" id="btnSetupPaste" type="button">Join this board</button></div>
     <p class="note">An <strong>update link</strong> won't work here — updates only carry new messages, not the keys you need to get in. Ask for an invite link.</p>
     <p class="err" id="setupErr"></p>
@@ -278,7 +278,7 @@
       <p class="note">An update link carries only what's new since you last shared — a few hundred characters instead of the whole board. Your friend taps it and the messages merge on their side automatically. Everything after the <span class="mono">#</span> stays in the browser and is never sent to any server.</p>
 
       <label for="syncPaste">Paste a friend's link or code to merge</label>
-      <textarea id="syncPaste" class="synctext" placeholder="https://…#u=…  or  CUB6:…"></textarea>
+      <textarea id="syncPaste" class="synctext" placeholder="https://…#u=…  or  CUB7:…"></textarea>
       <div class="row">
         <button class="btn btn-ghost" id="btnMerge" type="button">Merge into my board</button>
         <span class="ok" id="mergeOk"></span>
@@ -411,16 +411,132 @@ async function aesDec(key, blob, aad){
 }
 async function sha256hex(t){const h=await crypto.subtle.digest('SHA-256',enc.encode(t));return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 
-/* ---------- sync codes ---------- */
+/* ---------- sync codes ----------
+   CUB7 (V6.3): binary codes. The old path was base64-in-JSON -> gzip -> base64,
+   which roughly doubled every link: gzip cannot shrink ciphertext, signatures or
+   hashes (they are random bytes), and the second base64 pass adds a third on top.
+   CUB7 writes the same JSON tree as a compact binary form — raw bytes for fields
+   that are really bytes, one-byte tokens for known keys, millisecond ints for
+   timestamps — then base64url once. Purely a transport encoding: keys, envelopes,
+   ciphertext and signatures are byte-for-byte what CUB6 carried, and CUB6/CUB5
+   codes from older builds still read. */
+const b64url = {
+  to:b=>b64.to(b).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),
+  from:s=>b64.from(s.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(s.length/4)*4,'='))
+};
+const hex = {
+  to:b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''),
+  from:s=>Uint8Array.from(s.match(/../g), h=>parseInt(h,16))
+};
+/* Type tags. Append-only: a tag or key index, once shipped, keeps its meaning forever. */
+const CT = { NULL:0, FALSE:1, TRUE:2, INT:3, NUM:4, STR:5, HEX:6, B64:7, B64U:8, ARR:9, OBJ:10, KEY:11, ISO:12 };
+const CUB_KEYS = ['v','id','seq','author','ts','enc','nonce','ct','plaintext_sha256','replyTo','topic','pinnedBy','sig',
+  't','b','n','d','m','j','x','who','mem','pk','version','boardId','members','messages','journals','tombs','retentionDays',
+  'groupKeyRawTemp','salt1','salt2','totpBlob','wrapBlob','pubJwk','kty','crv','key_ops','ext','by','alg','use','e','k','p'];
+const CUB_KEY_IX = new Map(CUB_KEYS.map((k,i)=>[k,i]));
+/* Strings that are really bytes. A string is only stored as bytes when re-encoding
+   those bytes reproduces the exact original, so round-trips are lossless whatever
+   the text happens to look like. */
+const BYTE_KINDS = [
+  [CT.HEX,  /^[0-9a-f]{16,}$/,            s=>s.length%2 ? null : hex.from(s),  hex.to],     // ids, SHA-256 hex
+  [CT.B64,  /^[A-Za-z0-9+/]{16,}={0,2}$/, s=>s.length%4 ? null : b64.from(s),  b64.to],     // nonces, ciphertext, sigs, salts
+  [CT.B64U, /^[A-Za-z0-9_-]{16,}$/,       s=>b64url.from(s),                   b64url.to],  // JWK coordinates
+];
+const ISO_RE = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
+const f64 = new DataView(new ArrayBuffer(8));
+
+function cubEncode(root){
+  let buf = new Uint8Array(1024), n = 0;
+  const need = k=>{ if (n + k > buf.length){ const nb = new Uint8Array(Math.max(buf.length*2, n + k)); nb.set(buf); buf = nb; } };
+  const byte = b=>{ need(1); buf[n++] = b; };
+  const uint = v=>{ need(10); while (v >= 128){ buf[n++] = (v % 128) | 128; v = Math.floor(v/128); } buf[n++] = v; };
+  const zig  = v=>uint(v >= 0 ? v*2 : -v*2 - 1);
+  const bytes = u=>{ need(u.length); buf.set(u, n); n += u.length; };
+  const str = s=>{ const u = enc.encode(s); byte(CT.STR); uint(u.length); bytes(u); };
+  const val = v=>{
+    if (v === null || v === undefined) return byte(CT.NULL);
+    if (v === true)  return byte(CT.TRUE);
+    if (v === false) return byte(CT.FALSE);
+    if (typeof v === 'number'){
+      if (!isFinite(v)) return byte(CT.NULL);                                   // what JSON does
+      if (Number.isInteger(v) && Math.abs(v) < 2**52){ byte(CT.INT); return zig(v); }
+      byte(CT.NUM); f64.setFloat64(0, v, true); return bytes(new Uint8Array(f64.buffer));
+    }
+    if (typeof v === 'string'){
+      if (ISO_RE.test(v)){ const ms = Date.parse(v); if (new Date(ms).toISOString() === v){ byte(CT.ISO); return zig(ms); } }
+      for (const [tag, re, from, to] of BYTE_KINDS){
+        if (!re.test(v)) continue;
+        let u = null; try{ u = from(v); }catch{}
+        if (u && to(u) === v){ byte(tag); uint(u.length); return bytes(u); }
+      }
+      return str(v);
+    }
+    if (Array.isArray(v)){ byte(CT.ARR); uint(v.length); for (const x of v) val(x); return; }
+    const keys = Object.keys(v).filter(k=>v[k] !== undefined);
+    byte(CT.OBJ); uint(keys.length);
+    for (const k of keys){
+      const ix = CUB_KEY_IX.get(k);
+      if (ix !== undefined){ byte(CT.KEY); uint(ix); } else str(k);
+      val(v[k]);
+    }
+  };
+  val(root);
+  return buf.subarray(0, n);
+}
+
+function cubDecode(buf){
+  let p = 0;
+  const bad = ()=>{ throw new Error('bad-code'); };
+  const byte = ()=>{ if (p >= buf.length) bad(); return buf[p++]; };
+  const uint = ()=>{ let v = 0, mul = 1, b; do{ b = byte(); v += (b % 128) * mul; mul *= 128; } while (b >= 128); return v; };
+  const unzig = ()=>{ const u = uint(); return u % 2 ? -(u + 1)/2 : u/2; };
+  const take = k=>{ if (p + k > buf.length) bad(); const s = buf.subarray(p, p + k); p += k; return s; };
+  const key = ()=>{ const t = byte(); if (t === CT.KEY){ const k = CUB_KEYS[uint()]; if (k === undefined) bad(); return k; }
+                    if (t === CT.STR) return dec.decode(take(uint())); bad(); };
+  const val = ()=>{
+    const t = byte();
+    switch (t){
+      case CT.NULL: return null;   case CT.TRUE: return true;   case CT.FALSE: return false;
+      case CT.INT:  return unzig();
+      case CT.NUM:  { const u = take(8); new Uint8Array(f64.buffer).set(u); return f64.getFloat64(0, true); }
+      case CT.STR:  return dec.decode(take(uint()));
+      case CT.HEX:  return hex.to(take(uint()));
+      case CT.B64:  return b64.to(take(uint()));
+      case CT.B64U: return b64url.to(take(uint()));
+      case CT.ISO:  return new Date(unzig()).toISOString();
+      case CT.ARR:  { const c = uint(), a = []; for (let i = 0; i < c; i++) a.push(val()); return a; }
+      case CT.OBJ:  { const c = uint(), o = {}; for (let i = 0; i < c; i++){ const k = key(); o[k] = val(); } return o; }
+      default: bad();
+    }
+  };
+  const v = val();
+  if (p !== buf.length) bad();
+  return v;
+}
+
+async function zStream(bytes, compress){  // 'deflate' (zlib) rather than 'deflate-raw': every CompressionStream browser has it
+  const cs = compress ? new CompressionStream('deflate') : new DecompressionStream('deflate');
+  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(cs)).arrayBuffer());
+}
+
+/* Layout after base64url: [flags][body]. flags&1: body is deflated (kept only when it actually helps —
+   with ciphertext dominating it usually does not, and the code stays readable without CompressionStream). */
 async function toSyncCode(json){
-  try{
-    const buf = await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
-    return 'CUB6:'+b64.to(buf);
-  }catch{ return 'CUB6P:'+b64.to(enc.encode(json)); }
+  let body = cubEncode(JSON.parse(json)), flags = 0;
+  try{ const z = await zStream(body, true); if (z.length < body.length){ body = z; flags |= 1; } }catch{}
+  const out = new Uint8Array(1 + body.length); out[0] = flags; out.set(body, 1);
+  return 'CUB7:'+b64url.to(out);
 }
 async function fromSyncCode(text){
   text = text.trim();
-  for (const [tag, gz] of [['CUB6:',1],['CUB5:',1],['CUB6P:',0],['CUB5P:',0]]){
+  if (text.startsWith('CUB7:')){
+    const buf = b64url.from(text.slice(5));
+    if (!buf.length) throw new Error('bad-code');
+    let body = buf.subarray(1);
+    if (buf[0] & 1) body = await zStream(body, false);
+    return cubDecode(body);
+  }
+  for (const [tag, gz] of [['CUB6:',1],['CUB5:',1],['CUB6P:',0],['CUB5P:',0]]){   // older builds
     if (!text.startsWith(tag)) continue;
     const raw = b64.from(text.slice(tag.length));
     if (!gz) return JSON.parse(dec.decode(raw));
@@ -1372,7 +1488,7 @@ async function setupFromPaste(){
   catch{
     return $('setupErr').textContent = /^https?:|#[ui]=/.test(text)
       ? 'That link looks incomplete — it may have been cut short. Ask for it again.'
-      : 'That could not be read. Make sure the whole code was copied, starting with CUB6:';
+      : 'That could not be read. Make sure the whole code was copied, starting with CUB7: (or CUB6: from an older build)';
   }
   if (parsed && parsed.t === 'u')
     return $('setupErr').textContent = 'That is an update link — it only carries new messages, not the keys you need to join. Ask for an invite link instead.';
