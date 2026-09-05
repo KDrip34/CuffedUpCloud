@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="icon" href="icon.svg">
-<title>CuffedUpBoard — Encrypted Friend Board V6</title>
+<title>CuffedUpCloud — Encrypted Friend Board V6.2</title>
 <style>
   :root{
     --bg:#12101F; --bg-raise:#1B1830; --bg-card:#211D3A;
@@ -225,7 +225,7 @@
       <label for="draftTopic">Topic <span style="color:var(--ink-dim)">(optional — groups the conversation)</span></label>
       <input id="draftTopic" placeholder="e.g. weekend-plans" maxlength="24" autocomplete="off">
       <div class="row"><button class="btn btn-purple" id="btnPost" type="button">Encrypt, sign &amp; post</button></div>
-      <p class="note">Messages arrive <strong>sealed</strong>. Tap to decrypt + verify; re-seals after 30s. Threads rank by relevance — pinned first, then recent activity; quiet threads auto-archive after about a week. Locks after 90s idle.</p>
+      <p class="note">Messages arrive <strong>sealed</strong>. Tap to decrypt + verify; it re-seals on its own after 30–120s depending on length — tap the text to keep reading (up to a 3-minute ceiling), or Seal to close it early. Threads rank by relevance — pinned first, then recent activity; quiet threads auto-archive after about a week. Locks after 90s idle.</p>
     </section>
 
     <section id="journal" class="panel hidden">
@@ -700,35 +700,96 @@ function card(box, m, isReply){
       <button class="btn btn-ghost btn-mini a-pin" type="button">${m.pinnedBy&&m.pinnedBy.includes(session?session.name:'')?'Unpin':'📌 Pin'}</button>
       ${session && m.author===session.name ? '<button class="btn btn-ghost btn-mini a-del" type="button">🗑 Delete</button>' : ''}
     </div>`;
+  el.dataset.sealkey = m.id;
   box.appendChild(el);
   const s = el.querySelector('.sealed'), open = ()=>reveal(m, el);
   s.onclick = open;
   s.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } };
+  if (revealed.has(m.id)) reveal(m, el, true);   // was open before this re-render: keep it open
   el.querySelector('.a-reply').onclick = ()=>startReply(m.id, m.author);
   el.querySelector('.a-pin').onclick   = ()=>togglePin(m.id);
   const d = el.querySelector('.a-del'); if (d) d.onclick = ()=>deleteMine(m.id);
 }
 
-/* ---------- unsealing (shared by board + journal) ---------- */
-function unseal(card, ok, body, badges, onExpire){
-  const sealed = card.querySelector('.sealed');
-  if (!sealed) return;
-  sealed.outerHTML = `
-    <div class="body">${ok ? escapeHtml(body) : '<span class="err">Verification failed — not shown.</span>'}</div>
-    <div class="badges">${badges}<span class="reseal">re-seals in 30s</span></div>`;
-  const counter = card.querySelector('.reseal');
-  let left = 30;
-  const t = setInterval(()=>{
-    left--;
-    if (counter) counter.textContent = 're-seals in '+Math.max(left,0)+'s';
-    if (left <= 0){ clearInterval(t); onExpire(); }
-  }, 1000);
-  return t;
+/* ---------- unsealing (shared by board + journal) ----------
+   One ticker, one record per open card, keyed by message/entry id.
+   Open cards survive re-renders (card() / renderJournal restore them),
+   expiry re-seals ONLY that card, and the countdown scales with length. */
+let sealTicker = null;
+const READ_BASE_S = 30, READ_MAX_S = 120, HARD_CAP_S = 180;   // 3-minute ceiling regardless of taps
+function readingSeconds(text){
+  const words = (String(text).trim().match(/\S+/g)||[]).length;
+  return Math.min(READ_MAX_S, READ_BASE_S + Math.ceil(words/3));   // ~3 words/s reading pace
 }
 
-async function reveal(m, cardEl){
+function unseal(card, key, ok, body, badges, reopen){
+  const sealed = card.querySelector('.sealed');
+  if (!sealed) return;
+  let rec = revealed.get(key);
+  if (!rec){
+    const total = ok ? readingSeconds(body) : READ_BASE_S;
+    rec = { left: total, total, elapsed: 0, expiresAt: Date.now()+total*1000+1500,
+            hardStopAt: Date.now()+HARD_CAP_S*1000+1500, reopen };
+    revealed.set(key, rec);
+  }
+  rec.reopen = reopen;
+  card.dataset.sealkey = key;
+  sealed.outerHTML = `
+    <div class="body" title="Tap to keep reading (resets the countdown)">${ok ? escapeHtml(body) : '<span class="err">Verification failed — not shown.</span>'}</div>
+    <div class="badges">${badges}<span class="reseal">re-seals in ${rec.left}s</span>
+      <button class="btn btn-ghost btn-mini a-seal" type="button" style="min-height:26px;padding:3px 9px">🔒 Seal</button></div>`;
+  card.querySelector('.body').onclick = ()=>{          // reading = deliberate activity
+    rec.left = Math.min(rec.total, HARD_CAP_S - rec.elapsed);          // extend, but never past the ceiling
+    rec.expiresAt = Math.min(Date.now()+rec.total*1000+1500, rec.hardStopAt);
+    const c = card.querySelector('.reseal'); if (c) c.textContent = 're-seals in '+rec.left+'s';
+    bumpIdle();
+  };
+  card.querySelector('.a-seal').onclick = ()=>{ resealCard(key); bumpIdle(); };
+  startSealTicker();
+}
+
+function cardFor(key){
+  for (const el of document.querySelectorAll('[data-sealkey]')) if (el.dataset.sealkey === key) return el;
+  return null;
+}
+
+function resealCard(key){
+  const rec = revealed.get(key);
+  revealed.delete(key);
+  const card = cardFor(key);
+  if (!card) return;
+  const body = card.querySelector('.body'), badges = card.querySelector('.badges');
+  if (badges) badges.remove();
+  if (!body) return;
+  const sealed = document.createElement('div');
+  sealed.className = 'sealed'; sealed.setAttribute('role','button'); sealed.tabIndex = 0;
+  sealed.innerHTML = '🔒 Sealed — tap to decrypt &amp; verify';
+  body.replaceWith(sealed);
+  if (rec && rec.reopen){
+    sealed.onclick = ()=>rec.reopen(card);
+    sealed.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); rec.reopen(card); } };
+  }
+  if (!revealed.size){ clearInterval(sealTicker); sealTicker = null; }
+}
+
+function startSealTicker(){
+  if (sealTicker) return;
+  sealTicker = setInterval(()=>{
+    const now = Date.now();
+    for (const [key, rec] of [...revealed]){
+      rec.left--; rec.elapsed++;
+      const cf = cardFor(key), c = cf && cf.querySelector('.reseal');
+      if (c) c.textContent = 're-seals in '+Math.max(rec.left,0)+'s';
+      if (rec.left <= 0 || rec.elapsed >= HARD_CAP_S || now > rec.expiresAt || now > rec.hardStopAt)
+        resealCard(key);                                            // countdown, 3-min ceiling, or wall clock — whichever first
+    }
+    if (!revealed.size){ clearInterval(sealTicker); sealTicker = null; }
+  }, 1000);
+}
+
+async function reveal(m, cardEl, restoring=false){
   if (!session) return;
-  bumpIdle();
+  if (!restoring) bumpIdle();
   let sigOK=false, gcmOK=false, hashOK=false, body='';
   try{
     const pub = await crypto.subtle.importKey('jwk', board.members[m.author].pubJwk, {name:'ECDSA',namedCurve:'P-256'}, false, ['verify']);
@@ -743,8 +804,8 @@ async function reveal(m, cardEl){
     `<span class="badge ${sigOK?'':'badge-fail'}">SIG ${sigOK?'VERIFIED · '+escapeHtml(m.author).toUpperCase():'FAIL'}</span>
      <span class="badge ${gcmOK?'':'badge-fail'}">AES-GCM ${gcmOK?'PASS':'FAIL'}</span>
      <span class="badge ${hashOK?'':'badge-fail'}">SHA-256 ${hashOK?'PASS':'FAIL'}</span>`;
-  const t = unseal(cardEl, sigOK&&gcmOK&&hashOK, body, badges, ()=>{ revealed.delete(m.id); renderMessages(); });
-  revealed.set(m.id, t);
+  if (!session) return;                                    // locked while decrypting
+  unseal(cardEl, m.id, sigOK&&gcmOK&&hashOK, body, badges, el=>reveal(m, el));
 }
 
 /* ---------- personal journal ---------- */
@@ -777,27 +838,30 @@ function renderJournal(){
       <div class="msg-head"><span class="author">Entry #${e.seq}</span><span class="when">${new Date(e.ts).toLocaleString()}</span></div>
       <div class="sealed" role="button" tabindex="0">🔒 Sealed — tap to decrypt &amp; verify</div>
       <div class="msg-actions"><button class="btn btn-ghost btn-mini a-del" type="button">🗑 Delete</button></div>`;
+    el.dataset.sealkey = 'j:'+e.id;
     box.appendChild(el);
     const s = el.querySelector('.sealed'), open = ()=>revealEntry(e, el);
     s.onclick = open;
     s.onkeydown = ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); open(); } };
+    if (revealed.has('j:'+e.id)) revealEntry(e, el, true);
     el.querySelector('.a-del').onclick = ()=>deleteEntry(e.id);
   }
 }
 
-async function revealEntry(e, cardEl){
+async function revealEntry(e, cardEl, restoring=false){
   if (!session) return;
-  bumpIdle();
+  if (!restoring) bumpIdle();
   let gcmOK=false, hashOK=false, body='';
   try{
     body = dec.decode(await aesDec(session.journalKey, e.enc, journalAad(session.name, e)));
     gcmOK = true;
     hashOK = (await sha256hex(body)) === e.plaintext_sha256;
   }catch{}
-  unseal(cardEl, gcmOK&&hashOK, body,
+  if (!session) return;
+  unseal(cardEl, 'j:'+e.id, gcmOK&&hashOK, body,
     `<span class="badge ${gcmOK?'':'badge-fail'}">AES-GCM+AAD ${gcmOK?'PASS':'FAIL'}</span>
      <span class="badge ${hashOK?'':'badge-fail'}">SHA-256 ${hashOK?'PASS':'FAIL'}</span>`,
-    renderJournal);
+    el=>revealEntry(e, el));
 }
 
 async function journalVerifyAll(){
@@ -1247,7 +1311,7 @@ function lockBoard(reason){
   if (!session || suppressLock) return;
   try{ localStorage.setItem(seenKey(), String(Date.now())); }catch{}
   session = null;                       // keys become unreachable
-  revealed.forEach(t=>clearInterval(t)); revealed.clear();
+  revealed.clear(); clearInterval(sealTicker); sealTicker = null;
   clearInterval(idleInterval); clearInterval(relayInterval);
   cancelReply();
   $('draft').value=''; $('journalDraft').value=''; $('bridgePw').value='';

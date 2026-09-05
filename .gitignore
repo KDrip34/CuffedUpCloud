@@ -2,3 +2,6 @@ relay_data/
 __pycache__/
 *.pyc
 cuffedup-journal-bundle.json
+qa/node_modules/
+qa/package.json
+qa/package-lock.json
