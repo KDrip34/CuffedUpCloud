@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#12101F">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -22,13 +22,20 @@
     --mono:ui-monospace,'Cascadia Code',Menlo,Consolas,monospace;
     --sans:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
     --pad:22px;
+    /* Safe-area insets (notch / Dynamic Island / home indicator). Needs viewport-fit=cover. */
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-right:env(safe-area-inset-right,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+    --safe-left:env(safe-area-inset-left,0px);
+    --app-h:100vh;                        /* fallback for browsers without dynamic viewport units */
   }
+  @supports (height:100dvh){ :root{--app-h:100dvh} }   /* tracks iOS toolbar show/hide */
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);min-height:100%}
-  body{display:flex;flex-direction:column;align-items:center;
-       padding:0 max(14px,env(safe-area-inset-left)) calc(48px + env(safe-area-inset-bottom))}
+  body{display:flex;flex-direction:column;align-items:center;min-height:100vh;min-height:var(--app-h);
+       padding:0 max(14px,var(--safe-right)) calc(48px + var(--safe-bottom)) max(14px,var(--safe-left))}
   .wrap{width:100%;max-width:680px}
-  header{padding:calc(18px + env(safe-area-inset-top)) 0 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  header{padding:calc(18px + var(--safe-top)) 0 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
   .brand{display:flex;align-items:center;gap:10px}
   .mark{width:34px;height:34px;border-radius:9px;background:var(--purple);display:grid;place-items:center;flex:none}
   h1{font-size:1.05rem;font-weight:700}
@@ -38,7 +45,7 @@
   .relaydot{font-family:var(--mono);font-size:.68rem;color:var(--ink-dim);border:1px solid var(--line);border-radius:99px;padding:5px 10px}
   .relaydot.live{color:var(--teal-soft);border-color:rgba(43,181,138,.4)}
   .relaydot.off{color:var(--coral-soft);border-color:rgba(224,102,59,.35)}
-  .lockbtn{background:none;border:1px solid var(--line2);color:var(--purple-soft);border-radius:8px;padding:9px 14px;font-size:.8rem;cursor:pointer;min-height:40px}
+  .lockbtn{background:none;border:1px solid var(--line2);color:var(--purple-soft);border-radius:8px;padding:9px 14px;font-size:.8rem;cursor:pointer;min-height:44px}
 
   .panel{background:var(--bg-raise);border:1px solid var(--line);border-radius:16px;padding:var(--pad);margin-bottom:14px}
   .panel h2{font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:12px}
@@ -47,6 +54,10 @@
   input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:10px;color:var(--ink);
     padding:12px 13px;font-size:16px;font-family:var(--sans)}  /* 16px keeps iOS from zooming */
   textarea{min-height:88px;resize:vertical;line-height:1.5}
+  /* Touch ergonomics: 44px targets (Apple HIG / WCAG 2.5.5), no 300ms tap delay. Checkboxes keep
+     their native size — the paired <label for> row is the touch target (.switch, below). */
+  button,input:not([type=checkbox]):not([type=radio]),select,textarea,.tab,.tab-btn,.action-btn{min-height:44px}
+  button,input,select,textarea,label,.btn,.tab,.tab-btn,.action-btn,.sealed,[role=button]{touch-action:manipulation}
   input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--purple);outline-offset:2px}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:10px;
     padding:12px 18px;font-size:.9rem;font-weight:600;cursor:pointer;color:#fff;min-height:44px}
@@ -55,7 +66,7 @@
   .btn-coral{background:var(--coral)} .btn-coral:hover{background:#EB744A}
   .btn-ghost{background:none;border:1px solid var(--line2);color:var(--purple-soft)}
   .btn[disabled]{opacity:.45;cursor:not-allowed}
-  .btn-mini{padding:7px 11px;font-size:.72rem;border-radius:8px;min-height:36px}
+  .btn-mini{padding:7px 11px;font-size:.72rem;border-radius:8px;min-height:44px}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
   .grow{flex:1}
   .note{font-size:.78rem;color:var(--ink-dim);line-height:1.55;margin-top:10px}
@@ -64,12 +75,18 @@
   .ok{color:var(--teal-soft);font-size:.85rem;margin-top:10px}
   .mono{font-family:var(--mono)}
   .secretbox{background:var(--bg);border:1px dashed var(--line2);border-radius:10px;padding:12px;font-family:var(--mono);
-    font-size:.8rem;word-break:break-all;color:var(--teal-soft);margin-top:8px}
+    font-size:.8rem;color:var(--teal-soft);margin-top:8px}
+  /* String containment: invite links (#i=…), CUB7 codes, otpauth URIs and other key/payload
+     strings have no natural break points — force wrapping so they never widen the page. */
+  .secretbox,.synctext,.qrmeta,.payload,.keytext{word-break:break-all;overflow-wrap:anywhere;white-space:pre-wrap;max-width:100%}
+  .note .mono{overflow-wrap:anywhere}
   .democode{font-family:var(--mono);font-size:1.6rem;letter-spacing:.3em;color:var(--purple-soft);text-align:center;padding:8px 0}
-  .switch{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:.84rem;color:var(--purple-soft)}
-  .switch input{width:auto;min-width:20px;height:20px;accent-color:var(--purple)}
+  .switch{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:.84rem;color:var(--purple-soft);min-height:44px}
+  .switch input{width:auto;min-width:20px;height:20px;accent-color:var(--purple);flex:none}
 
-  .tabs{display:flex;gap:6px;margin-bottom:12px;position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0}
+  /* Bottom tab bar: sticks to the viewport bottom, clear of the home indicator */
+  .tabs{display:flex;gap:6px;margin-top:4px;position:sticky;bottom:0;z-index:50;background:var(--bg);
+    padding:10px 0 calc(10px + var(--safe-bottom));border-top:1px solid var(--line)}
   .tab{flex:1;background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:10px;padding:11px 4px;
     font-size:.8rem;font-weight:600;cursor:pointer;min-height:44px}
   .tab.active{border-color:var(--purple);color:var(--purple-soft);background:rgba(127,119,221,.12)}
@@ -83,7 +100,7 @@
   .sealed{margin-top:10px;background:var(--bg);border:1px dashed var(--line2);border-radius:10px;padding:15px;
     text-align:center;cursor:pointer;color:var(--ink-dim);font-size:.85rem;min-height:48px}
   .sealed:hover{border-color:var(--purple);color:var(--purple-soft)}
-  .body{margin-top:10px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;font-size:.95rem}
+  .body{margin-top:10px;white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;line-height:1.55;font-size:.95rem}
   .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center}
   .badge{font-family:var(--mono);font-size:.6rem;letter-spacing:.05em;padding:3px 8px;border-radius:99px;
     background:rgba(43,181,138,.14);color:var(--teal-soft);border:1px solid rgba(43,181,138,.35)}
@@ -101,15 +118,18 @@
     padding:12px;font-size:.78rem;cursor:pointer;margin:8px 0 12px;min-height:44px}
   .archive-toggle:hover{border-color:var(--purple);color:var(--purple-soft)}
   .replybar{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--coral-soft);margin-top:10px}
-  .replybar button{background:none;border:none;color:var(--ink-dim);cursor:pointer;text-decoration:underline;font-size:.75rem;padding:6px}
-  .synctext{font-family:var(--mono);font-size:.7rem;min-height:96px}
-  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom));
+  .replybar button{background:none;border:none;color:var(--ink-dim);cursor:pointer;text-decoration:underline;font-size:.75rem;padding:6px 10px}
+  .synctext{font-family:var(--mono);font-size:16px;line-height:1.35;min-height:96px}  /* <16px makes iOS zoom on focus */
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + var(--safe-bottom));  /* above the tab bar */
     background:var(--bg-card);border:1px solid var(--teal);color:var(--teal-soft);border-radius:12px;
-    padding:12px 18px;font-size:.85rem;z-index:50;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(92vw,420px)}
+    padding:12px 18px;font-size:.85rem;z-index:60;box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:min(92vw,420px)}
   .toast.warn-toast{border-color:var(--coral);color:var(--coral-soft)}
   /* QR overlay: always black on white so any camera reads it, whatever the theme */
-  .qrwrap{position:fixed;inset:0;background:rgba(8,6,20,.94);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
-  .qrcard{background:#fff;color:#111;border-radius:16px;padding:16px;width:100%;max-width:min(92vw,520px);text-align:center}
+  .qrwrap{position:fixed;inset:0;background:rgba(8,6,20,.94);display:flex;align-items:center;justify-content:center;z-index:100;
+    padding:max(20px,var(--safe-top)) max(16px,var(--safe-right)) max(20px,var(--safe-bottom)) max(16px,var(--safe-left))}
+  .qrcard{background:#fff;color:#111;border-radius:16px;padding:16px;width:100%;max-width:360px;text-align:center;
+    max-height:calc(100vh - 40px);max-height:calc(var(--app-h) - 40px - var(--safe-top) - var(--safe-bottom));
+    overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .qrcard svg{width:100%;height:auto;display:block}
   .qrtitle{font-weight:700;margin-bottom:8px}
   .qrmeta{font-family:var(--mono);font-size:.72rem;color:#555;margin:8px 0 2px}
@@ -118,12 +138,18 @@
 
   @media (max-width:520px){
     :root{--pad:16px}
-    header{padding-top:calc(12px + env(safe-area-inset-top))}
+    header{padding-top:calc(12px + var(--safe-top))}
     .tab{font-size:0}                     /* icons only on narrow screens */
     .tab::first-letter{font-size:1.15rem}
     .row .btn{flex:1 1 100%}
     .row .btn-mini{flex:0 0 auto}
     .msg.reply-card{margin-left:10px}
+  }
+  @media (max-width:375px){
+    :root{--pad:14px}
+    input,select,textarea{font-size:16px}  /* restated: never below 16px or iOS Safari zooms on focus */
+    .tabs{gap:4px}
+    .msg-actions .btn-mini{flex:1 1 auto}
   }
   @media (prefers-reduced-motion:no-preference){
     .panel{animation:rise .3s ease both}
@@ -216,12 +242,6 @@
 
   <!-- ========== UNLOCKED ========== -->
   <div id="unlocked" class="hidden">
-    <div class="tabs">
-      <button class="tab active" id="tabBoard" type="button">💬 Board</button>
-      <button class="tab" id="tabJournal" type="button">📓 Journal</button>
-      <button class="tab" id="tabSync" type="button">🔄 Sync</button>
-    </div>
-
     <section id="board" class="panel">
       <h2>Board <span id="whoami" style="color:var(--teal-soft)"></span></h2>
       <div id="messages"></div>
@@ -334,6 +354,12 @@
       </div>
       <p class="note">Keep one backup somewhere that isn't this device — the 3-2-1 rule from the case study.</p>
     </section>
+
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab active" id="tabBoard" type="button">💬 Board</button>
+      <button class="tab" id="tabJournal" type="button">📓 Journal</button>
+      <button class="tab" id="tabSync" type="button">🔄 Sync</button>
+    </nav>
   </div>
 
   <div class="stack" aria-hidden="true">
@@ -877,7 +903,7 @@ function unseal(card, key, ok, body, badges, reopen){
   sealed.outerHTML = `
     <div class="body" title="Tap to keep reading (resets the countdown)">${ok ? escapeHtml(body) : '<span class="err">Verification failed — not shown.</span>'}</div>
     <div class="badges">${badges}<span class="reseal">re-seals in ${rec.left}s</span>
-      <button class="btn btn-ghost btn-mini a-seal" type="button" style="min-height:26px;padding:3px 9px">🔒 Seal</button></div>`;
+      <button class="btn btn-ghost btn-mini a-seal" type="button" style="padding:3px 12px">🔒 Seal</button></div>`;
   card.querySelector('.body').onclick = ()=>{          // reading = deliberate activity
     rec.left = Math.min(rec.total, HARD_CAP_S - rec.elapsed);          // extend, but never past the ceiling
     rec.expiresAt = Math.min(Date.now()+rec.total*1000+1500, rec.hardStopAt);
