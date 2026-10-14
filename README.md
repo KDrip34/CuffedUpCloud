@@ -4,7 +4,7 @@ A zero-knowledge encrypted message board and private journal for a small circle
 of friends. One HTML file, no accounts, no backend required — the server here is
 optional and can't read anything.
 
-**Live app:** https://KDrip34.github.io/cuffedupboard/
+**Live app:** kdrip34.github.io/CuffedUpCloud/
 
 Built by **Kendrick Ekejiuba** as the fourth deliverable in the CuffedUpCloud
 CIA Triad project series.
